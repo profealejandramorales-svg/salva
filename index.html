@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salva el Semestre - ProfeAle</title>
+    
+    <!-- Cargamos los estilos (Tailwind) y React directamente de internet -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        /* Animaciones suaves */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
+
+    <!-- Aquí es donde React "pintará" la aplicación -->
+    <div id="root"></div>
+
+    <!-- Tu Aplicación (Lógica) -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- ICONOS (SVG Inline para no depender de librerías externas) ---
+        const IconGraduation = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-2 opacity-90"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        );
+        const IconRotate = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"/><path d="M3 3v9h9"/></svg>
+        );
+        const IconCalculator = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+        );
+        const IconActivity = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        );
+        const IconTrash = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        );
+        const IconPlus = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        );
+        const IconAlert = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mb-2 opacity-50"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+        );
+
+        // --- COMPONENTE PRINCIPAL ---
+        function App() {
+            const [activeTab, setActiveTab] = useState('calculator'); // 'calculator' | 'panic'
+            const [targetGrade, setTargetGrade] = useState(4.0);
+            const [grades, setGrades] = useState([{ id: 1, value: '' }]);
+            const [simulatedGrade, setSimulatedGrade] = useState(4.0);
+            const [result, setResult] = useState(null);
+            const [currentAverage, setCurrentAverage] = useState(0);
+            const [projectedAverage, setProjectedAverage] = useState(0);
+
+            // Configuraciones de escala
+            const isScale100 = targetGrade > 10;
+            const maxGrade = isScale100 ? 70 : 7.0;
+            const minGrade = isScale100 ? 10 : 1.0;
+            const step = isScale100 ? 5 : 0.1;
+
+            const addGradeRow = () => {
+                const newId = grades.length > 0 ? Math.max(...grades.map(g => g.id)) + 1 : 1;
+                setGrades([...grades, { id: newId, value: '' }]);
+            };
+
+            const removeGradeRow = (id) => {
+                setGrades(grades.filter(g => g.id !== id));
+            };
+
+            const updateGrade = (id, value) => {
+                const newGrades = grades.map(g => {
+                    if (g.id === id) return { ...g, value: value };
+                    return g;
+                });
+                setGrades(newGrades);
+            };
+
+            useEffect(() => {
+                calculate();
+            }, [grades, targetGrade, simulatedGrade]);
+
+            const calculate = () => {
+                let sumVal = 0;
+                let count = 0;
+
+                grades.forEach(g => {
+                    const val = parseFloat(g.value);
+                    if (!isNaN(val)) {
+                        sumVal += val;
+                        count++;
+                    }
+                });
+
+                if (count > 0) {
+                    setCurrentAverage((sumVal / count).toFixed(2));
+                } else {
+                    setCurrentAverage(0);
+                }
+
+                // Cálculo Calculadora
+                const totalItems = count + 1;
+                const needed = (targetGrade * totalItems) - sumVal;
+                
+                if (count === 0 && grades[0].value === '') {
+                    setResult({ type: 'neutral', msg: 'Ingresa tus notas actuales.' });
+                } else {
+                    const neededRounded = needed.toFixed(1); 
+                    if (needed > maxGrade) {
+                        setResult({ type: 'impossible', val: neededRounded, msg: `Difícil... necesitas más de ${maxGrade}` });
+                    } else if (needed < minGrade) {
+                        setResult({ type: 'success', val: neededRounded, msg: '¡Ya pasaste! Te sobra nota.' });
+                    } else {
+                        setResult({ type: 'normal', val: neededRounded, msg: 'Esta es la nota que necesitas.' });
+                    }
+                }
+
+                // Cálculo Pánico
+                const simVal = parseFloat(simulatedGrade);
+                const projAvg = (sumVal + simVal) / (count + 1);
+                setProjectedAverage(isNaN(projAvg) ? 0 : projAvg.toFixed(2));
+            };
+
+            const handleReset = () => {
+                setGrades([{ id: 1, value: '' }]);
+                setTargetGrade(4.0);
+                setSimulatedGrade(4.0);
+            };
+
+            return (
+                <div className="min-h-screen p-4 flex flex-col justify-center items-center">
+                    <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100 animate-fade-in">
+                        
+                        {/* Header */}
+                        <div className={`p-6 text-white text-center relative transition-colors duration-500 ${activeTab === 'panic' ? 'bg-purple-600' : 'bg-indigo-600'}`}>
+                            <IconGraduation />
+                            <h1 className="text-2xl font-bold">Salva el Semestre</h1>
+                            <p className="text-indigo-100 text-sm opacity-90">
+                                {activeTab === 'panic' ? 'Simulador de Escenarios' : 'Calculadora de Notas'}
+                            </p>
+                            <button onClick={handleReset} className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition" title="Reiniciar">
+                                <IconRotate />
+                            </button>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="flex border-b border-slate-100">
+                            <button onClick={() => setActiveTab('calculator')} className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${activeTab === 'calculator' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50' : 'text-slate-400 hover:text-slate-600'}`}>
+                                <IconCalculator /> ¿Cuánto necesito?
+                            </button>
+                            <button onClick={() => setActiveTab('panic')} className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${activeTab === 'panic' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50/50' : 'text-slate-400 hover:text-slate-600'}`}>
+                                <IconActivity /> Modo Pánico
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            {/* Inputs */}
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <label className="text-sm font-semibold text-slate-700 pl-1">Promedio para aprobar:</label>
+                                    <input type="number" step="0.1" value={targetGrade} onChange={(e) => setTargetGrade(parseFloat(e.target.value))} className="w-20 p-1.5 text-center text-lg font-bold text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500" />
+                                </div>
+
+                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Tus Notas</h3>
+                                        <span className="text-xs bg-white border border-slate-200 px-2 py-0.5 rounded-full text-slate-400 font-mono">Promedio: {currentAverage || '--'}</span>
+                                    </div>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                                        {grades.map((grade, index) => (
+                                            <div key={grade.id} className="flex gap-2 items-center">
+                                                <div className="relative flex-1">
+                                                    <input type="number" placeholder={`Nota ${index + 1}`} value={grade.value} onChange={(e) => updateGrade(grade.id, e.target.value)} className="w-full p-2 bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:outline-none text-center font-semibold" />
+                                                </div>
+                                                <button onClick={() => removeGradeRow(grade.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                                                    <IconTrash />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button onClick={addGradeRow} className="w-full py-2 flex items-center justify-center gap-1 text-sm text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200 dashed border-slate-300 mt-2">
+                                            <IconPlus /> Agregar nota
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Resultados */}
+                            <div className="mt-4">
+                                {activeTab === 'calculator' && result && (
+                                    <div className={`relative p-6 rounded-2xl text-center transition-all duration-300 ${result.type === 'impossible' ? 'bg-red-50 text-red-800 border border-red-200' : ''} ${result.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : ''} ${result.type === 'normal' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : ''} ${result.type === 'neutral' ? 'bg-slate-100 text-slate-500' : ''}`}>
+                                        {result.type !== 'neutral' ? (
+                                            <>
+                                                <p className="uppercase tracking-wider text-[10px] font-bold opacity-70 mb-1">Nota Necesaria</p>
+                                                <div className="text-5xl font-black mb-2 tracking-tighter">{result.val}</div>
+                                                <p className="text-xs font-medium opacity-90">{result.msg}</p>
+                                            </>
+                                        ) : (
+                                            <div className="flex flex-col items-center py-2">
+                                                <IconAlert />
+                                                <p className="text-sm">{result.msg}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {activeTab === 'panic' && (
+                                    <div className="bg-purple-50 rounded-2xl p-5 border border-purple-100">
+                                        <p className="text-center text-purple-800 font-semibold mb-4 text-sm">Si en la próxima prueba me saco un...</p>
+                                        <div className="flex items-center justify-center gap-4 mb-6">
+                                            <button onClick={() => setSimulatedGrade(prev => Math.max(minGrade, parseFloat((prev - step).toFixed(1))))} className="w-8 h-8 rounded-full bg-white text-purple-600 shadow flex items-center justify-center font-bold hover:bg-purple-100">-</button>
+                                            <div className="text-4xl font-black text-purple-700 w-24 text-center">{typeof simulatedGrade === 'number' ? simulatedGrade.toFixed(1) : simulatedGrade}</div>
+                                            <button onClick={() => setSimulatedGrade(prev => Math.min(maxGrade, parseFloat((prev + step).toFixed(1))))} className="w-8 h-8 rounded-full bg-white text-purple-600 shadow flex items-center justify-center font-bold hover:bg-purple-100">+</button>
+                                        </div>
+                                        <input type="range" min={minGrade} max={maxGrade} step={step} value={simulatedGrade} onChange={(e) => setSimulatedGrade(parseFloat(e.target.value))} className="w-full accent-purple-600 mb-6 h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer" />
+                                        <div className={`p-4 rounded-xl text-center transition-colors duration-300 ${parseFloat(projectedAverage) >= targetGrade ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
+                                            <p className="text-xs font-bold uppercase opacity-70 mb-1">Mi promedio final sería</p>
+                                            <div className="text-3xl font-black">{projectedAverage}</div>
+                                            <p className="text-xs mt-1 font-medium">{parseFloat(projectedAverage) >= targetGrade ? '🎉 ¡Aprobado!' : '😨 Reprobado'}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="text-center mt-6 text-slate-400 text-sm font-medium">
+                        desarrollado por ProfeAle
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
