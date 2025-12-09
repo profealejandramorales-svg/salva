@@ -34,28 +34,38 @@
         const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
         const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
         const IconAlert = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mb-2 opacity-50"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>;
-        const IconCalendar = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
         const IconTrophy = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>;
+        const IconList = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>;
 
         function App() {
-            const [activeTab, setActiveTab] = useState('calculator'); // calculator, panic, annual
+            const [activeTab, setActiveTab] = useState('calculator'); // calculator, panic, annual, promotion
             const [targetGrade, setTargetGrade] = useState(4.0);
-            const [grades, setGrades] = useState([{ id: 1, value: '' }]);
-            const [simulatedGrade, setSimulatedGrade] = useState(4.0);
             
-            // Estado Anual
+            // Estado Calculadora
+            const [grades, setGrades] = useState([{ id: 1, value: '' }]);
+            const [currentAverage, setCurrentAverage] = useState(0); 
+            const [result, setResult] = useState(null);
+            
+            // Estado Pánico
+            const [simulatedGrade, setSimulatedGrade] = useState(4.0);
+            const [projectedAverage, setProjectedAverage] = useState(0);
+            
+            // Estado Anual (Individual)
             const [semester1Avg, setSemester1Avg] = useState('');
             const [neededSem2, setNeededSem2] = useState(null);
             const [projectedAnnual, setProjectedAnnual] = useState(null);
-            
-            // Estado Promoción (Veredicto)
             const [otherReds, setOtherReds] = useState(0);
             const [generalAvgInput, setGeneralAvgInput] = useState('');
             const [verdict, setVerdict] = useState(null);
 
-            const [result, setResult] = useState(null);
-            const [currentAverage, setCurrentAverage] = useState(0); 
-            const [projectedAverage, setProjectedAverage] = useState(0);
+            // Estado Promoción (ACTA FINAL)
+            const [subjects, setSubjects] = useState([
+                { id: 1, name: 'Matemáticas', avg: '', gradeCount: 5 }, // Default 5 grades
+                { id: 2, name: 'Lenguaje', avg: '', gradeCount: 5 },
+                { id: 3, name: 'Historia', avg: '', gradeCount: 5 },
+                { id: 4, name: 'Ciencias', avg: '', gradeCount: 5 },
+            ]);
+            const [promoStatus, setPromoStatus] = useState(null);
 
             // Escala
             const isScale100 = targetGrade > 10;
@@ -63,7 +73,7 @@
             const minGrade = isScale100 ? 10 : 1.0;
             const step = isScale100 ? 5 : 0.1;
 
-            // Handlers
+            // Handlers Generales
             const addGradeRow = () => {
                 const newId = grades.length > 0 ? Math.max(...grades.map(g => g.id)) + 1 : 1;
                 setGrades([...grades, { id: newId, value: '' }]);
@@ -74,9 +84,21 @@
                 setGrades(newGrades);
             };
 
+            // Handlers Promoción
+            const addSubject = () => {
+                const newId = subjects.length > 0 ? Math.max(...subjects.map(s => s.id)) + 1 : 1;
+                setSubjects([...subjects, { id: newId, name: '', avg: '', gradeCount: 5 }]);
+            };
+            const removeSubject = (id) => setSubjects(subjects.filter(s => s.id !== id));
+            const updateSubject = (id, field, value) => {
+                const newSubs = subjects.map(s => (s.id === id ? { ...s, [field]: value } : s));
+                setSubjects(newSubs);
+            };
+
             // Efectos
             useEffect(() => calculate(), [grades, targetGrade, simulatedGrade]);
             useEffect(() => calculateAnnualAndVerdict(), [semester1Avg, currentAverage, targetGrade, otherReds, generalAvgInput]);
+            useEffect(() => calculatePromotion(), [subjects]);
 
             const calculate = () => {
                 let sumVal = 0, count = 0;
@@ -105,12 +127,11 @@
             };
 
             const calculateAnnualAndVerdict = () => {
-                // 1. Calculo Anual de la Asignatura Actual
                 let currentAnnual = null;
                 if(semester1Avg === '' || isNaN(parseFloat(semester1Avg))) {
                     setNeededSem2(null);
                     setProjectedAnnual(null);
-                    setVerdict(null); // Sin sem1 no hay veredicto posible
+                    setVerdict(null); 
                     return;
                 }
                 
@@ -129,11 +150,7 @@
                     return;
                 }
 
-                // 2. Calculo de Veredicto (Aprobación Global)
-                // Si no hay promedio general ingresado, usamos el de la asignatura actual como estimación (o pedimos input)
                 const genAvg = generalAvgInput !== '' ? parseFloat(generalAvgInput) : currentAnnual;
-                
-                // Determinar si esta asignatura es roja
                 const currentIsRed = currentAnnual < 4.0;
                 const totalReds = otherReds + (currentIsRed ? 1 : 0);
 
@@ -157,6 +174,63 @@
                 setVerdict({ passed, reason, totalReds, genAvg });
             };
 
+            const calculatePromotion = () => {
+                let sum = 0;
+                let count = 0;
+                let redCount = 0;
+
+                subjects.forEach(s => {
+                    const val = parseFloat(s.avg);
+                    if (!isNaN(val)) {
+                        sum += val;
+                        count++;
+                        if (val < 4.0) redCount++;
+                    }
+                });
+
+                if (count === 0) {
+                    setPromoStatus(null);
+                    return;
+                }
+
+                const generalAvg = parseFloat((sum / count).toFixed(1)); 
+                
+                let passed = false;
+                let requiredAvg = 0;
+                let message = "";
+
+                if (redCount === 0) {
+                    passed = true;
+                    message = "Sin rojos. ¡Pasas de curso! 🎉";
+                } else if (redCount === 1) {
+                    requiredAvg = 4.5;
+                    passed = generalAvg >= 4.5;
+                    message = passed 
+                        ? `Con 1 rojo necesitas 4.5. Tienes ${generalAvg}. ¡Pasas! ✅`
+                        : `Con 1 rojo necesitas 4.5. Tienes ${generalAvg}. Repruebas ❌`;
+                } else if (redCount === 2) {
+                    requiredAvg = 5.0;
+                    passed = generalAvg >= 5.0;
+                    message = passed 
+                        ? `Con 2 rojos necesitas 5.0. Tienes ${generalAvg}. ¡Pasas! ✅`
+                        : `Con 2 rojos necesitas 5.0. Tienes ${generalAvg}. Repruebas ❌`;
+                } else {
+                    passed = false;
+                    message = "Más de 2 rojos es repitencia automática 💀";
+                }
+
+                setPromoStatus({ generalAvg, redCount, passed, message, requiredAvg });
+            };
+
+            const calculateSavingGrade = (avg, n) => {
+                // (avg * n + X) / (n+1) = 4.0
+                // avg * n + X = 4.0 * (n+1)
+                // X = 4.0 * (n+1) - avg * n
+                if(!avg || !n) return null;
+                const needed = (4.0 * (n + 1)) - (avg * n);
+                return needed.toFixed(1);
+            };
+
             const handleReset = () => {
                 setGrades([{ id: 1, value: '' }]);
                 setTargetGrade(4.0);
@@ -164,11 +238,18 @@
                 setSemester1Avg('');
                 setOtherReds(0);
                 setGeneralAvgInput('');
+                setSubjects([
+                    { id: 1, name: 'Matemáticas', avg: '', gradeCount: 5 },
+                    { id: 2, name: 'Lenguaje', avg: '', gradeCount: 5 },
+                    { id: 3, name: 'Historia', avg: '', gradeCount: 5 },
+                    { id: 4, name: 'Ciencias', avg: '', gradeCount: 5 },
+                ]);
             };
 
             const getHeaderColor = () => {
                 if (activeTab === 'panic') return 'bg-purple-600';
                 if (activeTab === 'annual') return 'bg-orange-500';
+                if (activeTab === 'promotion') return 'bg-blue-600';
                 return 'bg-indigo-600';
             };
 
@@ -181,7 +262,7 @@
                             <IconGraduation />
                             <h1 className="text-2xl font-bold">Salva el Semestre</h1>
                             <p className="text-white/80 text-sm opacity-90">
-                                {activeTab === 'panic' ? 'Simulador de Escenarios' : activeTab === 'annual' ? 'Veredicto Final' : 'Calculadora de Notas'}
+                                {activeTab === 'panic' ? 'Simulador de Escenarios' : activeTab === 'annual' ? 'Veredicto Individual' : activeTab === 'promotion' ? 'Situación Final (Acta)' : 'Calculadora de Notas'}
                             </p>
                             <button onClick={handleReset} className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition" title="Reiniciar">
                                 <IconRotate />
@@ -199,15 +280,20 @@
                             <button onClick={() => setActiveTab('annual')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'annual' ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-50/50' : 'text-slate-400 hover:text-slate-600'}`}>
                                 <IconTrophy /> Anual
                             </button>
+                             <button onClick={() => setActiveTab('promotion')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'promotion' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600'}`}>
+                                <IconList /> Acta
+                            </button>
                         </div>
 
                         <div className="p-6 space-y-6">
                             
-                            {/* Input Global */}
-                            <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                <label className="text-sm font-semibold text-slate-700 pl-1">Nota para aprobar (Azul):</label>
-                                <input type="number" step="0.1" value={targetGrade} onChange={(e) => setTargetGrade(parseFloat(e.target.value))} className="w-20 p-1.5 text-center text-lg font-bold text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500" />
-                            </div>
+                            {/* Input Global (Solo visible si NO estamos en acta) */}
+                            {activeTab !== 'promotion' && (
+                                <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <label className="text-sm font-semibold text-slate-700 pl-1">Nota para aprobar (Azul):</label>
+                                    <input type="number" step="0.1" value={targetGrade} onChange={(e) => setTargetGrade(parseFloat(e.target.value))} className="w-20 p-1.5 text-center text-lg font-bold text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500" />
+                                </div>
+                            )}
 
                             {/* --- TAB: NOTAS --- */}
                             {activeTab === 'calculator' && (
@@ -265,7 +351,7 @@
                                 </div>
                             )}
 
-                            {/* --- TAB: ANUAL (ACTUALIZADA) --- */}
+                            {/* --- TAB: ANUAL --- */}
                             {activeTab === 'annual' && (
                                 <div className="animate-fade-in space-y-4">
                                     {/* 1. Datos de la Asignatura Actual */}
@@ -338,6 +424,74 @@
                                             <p className="text-sm mt-2">Ingresa tu promedio del 1er semestre para ver si pasas.</p>
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {/* --- TAB: PROMOCIÓN (ACTA) --- */}
+                            {activeTab === 'promotion' && (
+                                <div className="animate-fade-in space-y-4">
+                                    <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                                        <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-2 text-center">Cierre de Año Escolar</h3>
+                                        <p className="text-xs text-blue-600 text-center mb-4">Ingresa tus promedios finales cerrados. Calcularemos si pasas por el reglamento de promoción.</p>
+                                        
+                                        {/* Dashboard Resumen */}
+                                        {promoStatus && (
+                                            <div className={`p-4 rounded-xl border mb-4 text-center shadow-sm transition-all ${promoStatus.passed ? 'bg-green-100 border-green-300 text-green-900' : 'bg-red-100 border-red-300 text-red-900'}`}>
+                                                <div className="flex justify-around items-center mb-2">
+                                                    <div>
+                                                        <span className="block text-[10px] uppercase font-bold opacity-60">Promedio General</span>
+                                                        <span className="text-2xl font-black">{promoStatus.generalAvg}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="block text-[10px] uppercase font-bold opacity-60">Rojos</span>
+                                                        <span className="text-2xl font-black">{promoStatus.redCount}</span>
+                                                    </div>
+                                                </div>
+                                                <p className="text-sm font-bold border-t border-black/10 pt-2 mt-2">{promoStatus.message}</p>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+                                            {subjects.map((sub, index) => {
+                                                const val = parseFloat(sub.avg);
+                                                const isRed = !isNaN(val) && val < 4.0;
+                                                const savingGrade = isRed ? calculateSavingGrade(val, sub.gradeCount) : null;
+                                                
+                                                return (
+                                                    <div key={sub.id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-2">
+                                                        {/* Fila Principal */}
+                                                        <div className="flex items-center gap-2">
+                                                            <input type="text" placeholder={`Asignatura ${index + 1}`} value={sub.name} onChange={(e) => updateSubject(sub.id, 'name', e.target.value)} className="flex-1 p-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500" />
+                                                            
+                                                            <div className="relative">
+                                                                <input type="number" step="0.1" placeholder="--" value={sub.avg} onChange={(e) => updateSubject(sub.id, 'avg', e.target.value)} className={`w-16 p-2 text-center font-bold text-lg border rounded-lg focus:outline-none focus:border-blue-500 ${isRed ? 'text-red-600 bg-red-50 border-red-200' : 'text-slate-700 bg-slate-50 border-slate-200'}`} />
+                                                            </div>
+
+                                                            <button onClick={() => removeSubject(sub.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><IconTrash /></button>
+                                                        </div>
+
+                                                        {/* Calculadora de Salvación (Solo si es rojo) */}
+                                                        {isRed && (
+                                                            <div className="bg-red-50 rounded-lg p-2 flex items-center justify-between text-xs animate-fade-in border border-red-100">
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-bold text-red-800 uppercase text-[10px]">¿Con cuántas notas?</span>
+                                                                    <div className="flex items-center gap-2 mt-1">
+                                                                        <input type="number" min="1" max="20" value={sub.gradeCount} onChange={(e) => updateSubject(sub.id, 'gradeCount', parseInt(e.target.value))} className="w-10 p-1 text-center border border-red-200 rounded bg-white font-bold text-red-700" />
+                                                                        <span className="text-red-600">notas actuales</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <span className="block text-[9px] uppercase font-bold text-red-500">Agregando 1 nota necesitas:</span>
+                                                                    <span className="text-xl font-black text-red-600">{savingGrade && parseFloat(savingGrade) <= 7.0 ? savingGrade : '😱'}</span>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <button onClick={addSubject} className="w-full py-3 flex items-center justify-center gap-1 text-sm text-blue-600 bg-white hover:bg-blue-50 rounded-xl transition-colors border border-blue-200 mt-4 font-semibold shadow-sm"><IconPlus /> Agregar Asignatura</button>
+                                    </div>
                                 </div>
                             )}
 
