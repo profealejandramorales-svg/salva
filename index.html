@@ -38,7 +38,7 @@
         const IconList = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>;
 
         function App() {
-            const [activeTab, setActiveTab] = useState('calculator'); // calculator, panic, annual, promotion
+            const [activeTab, setActiveTab] = useState('calculator');
             const [targetGrade, setTargetGrade] = useState(4.0);
             
             // Estado Calculadora
@@ -50,16 +50,15 @@
             const [simulatedGrade, setSimulatedGrade] = useState(4.0);
             const [projectedAverage, setProjectedAverage] = useState(0);
             
-            // Estado Anual (Individual)
+            // Estado Anual (Corregido para edición libre)
             const [semester1Avg, setSemester1Avg] = useState('');
-            const [neededSem2, setNeededSem2] = useState(null);
+            const [semester2Avg, setSemester2Avg] = useState(''); // Estado independiente
             const [projectedAnnual, setProjectedAnnual] = useState(null);
             const [otherReds, setOtherReds] = useState(0);
             const [generalAvgInput, setGeneralAvgInput] = useState('');
             const [verdict, setVerdict] = useState(null);
 
-            // Estado Promoción (ACTA FINAL)
-            // IMPORTANTE: gradeCount inicializado en 5
+            // Estado Promoción
             const [subjects, setSubjects] = useState([
                 { id: 1, name: 'Matemáticas', avg: '', gradeCount: 5 }, 
                 { id: 2, name: 'Lenguaje', avg: '', gradeCount: 5 },
@@ -74,7 +73,22 @@
             const minGrade = isScale100 ? 10 : 1.0;
             const step = isScale100 ? 5 : 0.1;
 
-            // Handlers Generales
+            // Efectos
+            useEffect(() => calculate(), [grades, targetGrade, simulatedGrade]);
+            
+            // Sincronizar calculadora -> anual (solo si hay datos nuevos)
+            useEffect(() => {
+                if (currentAverage > 0) {
+                    setSemester2Avg(currentAverage);
+                }
+            }, [currentAverage]);
+
+            // Calcular situación anual cada vez que cambien los promedios
+            useEffect(() => calculateAnnualAndVerdict(), [semester1Avg, semester2Avg, otherReds, generalAvgInput]);
+            
+            useEffect(() => calculatePromotion(), [subjects]);
+
+            // Handlers
             const addGradeRow = () => {
                 const newId = grades.length > 0 ? Math.max(...grades.map(g => g.id)) + 1 : 1;
                 setGrades([...grades, { id: newId, value: '' }]);
@@ -85,22 +99,15 @@
                 setGrades(newGrades);
             };
 
-            // Handlers Promoción
             const addSubject = () => {
                 const newId = subjects.length > 0 ? Math.max(...subjects.map(s => s.id)) + 1 : 1;
                 setSubjects([...subjects, { id: newId, name: '', avg: '', gradeCount: 5 }]);
             };
             const removeSubject = (id) => setSubjects(subjects.filter(s => s.id !== id));
-            
             const updateSubject = (id, field, value) => {
                 const newSubs = subjects.map(s => (s.id === id ? { ...s, [field]: value } : s));
                 setSubjects(newSubs);
             };
-
-            // Efectos
-            useEffect(() => calculate(), [grades, targetGrade, simulatedGrade]);
-            useEffect(() => calculateAnnualAndVerdict(), [semester1Avg, currentAverage, targetGrade, otherReds, generalAvgInput]);
-            useEffect(() => calculatePromotion(), [subjects]);
 
             const calculate = () => {
                 let sumVal = 0, count = 0;
@@ -130,21 +137,12 @@
 
             const calculateAnnualAndVerdict = () => {
                 let currentAnnual = null;
-                if(semester1Avg === '' || isNaN(parseFloat(semester1Avg))) {
-                    setNeededSem2(null);
-                    setProjectedAnnual(null);
-                    setVerdict(null); 
-                    return;
-                }
-                
                 const s1 = parseFloat(semester1Avg);
-                const needed = (targetGrade * 2) - s1;
-                setNeededSem2(needed.toFixed(1));
-
-                const curSem2 = parseFloat(currentAverage);
+                const s2 = parseFloat(semester2Avg);
                 
-                if (!isNaN(curSem2) && curSem2 > 0) {
-                    currentAnnual = parseFloat(((s1 + curSem2) / 2).toFixed(2));
+                // Calculamos solo si ambos son números válidos
+                if (!isNaN(s1) && !isNaN(s2) && s1 > 0 && s2 > 0) {
+                    currentAnnual = parseFloat(((s1 + s2) / 2).toFixed(2));
                     setProjectedAnnual(currentAnnual);
                 } else {
                     setProjectedAnnual(null);
@@ -177,10 +175,7 @@
             };
 
             const calculatePromotion = () => {
-                let sum = 0;
-                let count = 0;
-                let redCount = 0;
-
+                let sum = 0, count = 0, redCount = 0;
                 subjects.forEach(s => {
                     const val = parseFloat(s.avg);
                     if (!isNaN(val)) {
@@ -189,48 +184,27 @@
                         if (val < 4.0) redCount++;
                     }
                 });
-
-                if (count === 0) {
-                    setPromoStatus(null);
-                    return;
-                }
-
+                if (count === 0) { setPromoStatus(null); return; }
                 const generalAvg = parseFloat((sum / count).toFixed(1)); 
-                
-                let passed = false;
-                let requiredAvg = 0;
-                let message = "";
+                let passed = false, message = "";
 
-                if (redCount === 0) {
-                    passed = true;
-                    message = "Sin rojos. ¡Pasas de curso! 🎉";
-                } else if (redCount === 1) {
-                    requiredAvg = 4.5;
+                if (redCount === 0) { passed = true; message = "Sin rojos. ¡Pasas de curso! 🎉"; }
+                else if (redCount === 1) {
                     passed = generalAvg >= 4.5;
-                    message = passed 
-                        ? `Con 1 rojo necesitas 4.5. Tienes ${generalAvg}. ¡Pasas! ✅`
-                        : `Con 1 rojo necesitas 4.5. Tienes ${generalAvg}. Repruebas ❌`;
+                    message = passed ? `Con 1 rojo necesitas 4.5. Tienes ${generalAvg}. ¡Pasas! ✅` : `Con 1 rojo necesitas 4.5. Tienes ${generalAvg}. Repruebas ❌`;
                 } else if (redCount === 2) {
-                    requiredAvg = 5.0;
                     passed = generalAvg >= 5.0;
-                    message = passed 
-                        ? `Con 2 rojos necesitas 5.0. Tienes ${generalAvg}. ¡Pasas! ✅`
-                        : `Con 2 rojos necesitas 5.0. Tienes ${generalAvg}. Repruebas ❌`;
+                    message = passed ? `Con 2 rojos necesitas 5.0. Tienes ${generalAvg}. ¡Pasas! ✅` : `Con 2 rojos necesitas 5.0. Tienes ${generalAvg}. Repruebas ❌`;
                 } else {
-                    passed = false;
-                    message = "Más de 2 rojos es repitencia automática 💀";
+                    passed = false; message = "Más de 2 rojos es repitencia automática 💀";
                 }
-
-                setPromoStatus({ generalAvg, redCount, passed, message, requiredAvg });
+                setPromoStatus({ generalAvg, redCount, passed, message });
             };
 
-            // Lógica para calcular qué nota falta
             const calculateSavingGrade = (avg, n) => {
                 if(!avg || !n) return null;
-                // Fórmula: (PromedioActual * N_notas + NotaX) / (N_notas + 1) = 4.0
                 const needed = (4.0 * (n + 1)) - (avg * n);
                 const result = needed.toFixed(1);
-                
                 if (result > 7.0) return "> 7.0 (Imposible)";
                 if (result < 1.0) return "1.0 (Ya pasaste)";
                 return result;
@@ -238,9 +212,8 @@
 
             const handleReset = () => {
                 setGrades([{ id: 1, value: '' }]);
-                setTargetGrade(4.0);
-                setSimulatedGrade(4.0);
                 setSemester1Avg('');
+                setSemester2Avg('');
                 setOtherReds(0);
                 setGeneralAvgInput('');
                 setSubjects([
@@ -262,7 +235,6 @@
                 <div className="min-h-screen p-4 flex flex-col justify-center items-center">
                     <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100 animate-fade-in">
                         
-                        {/* Header */}
                         <div className={`p-6 text-white text-center relative transition-colors duration-500 ${getHeaderColor()}`}>
                             <IconGraduation />
                             <h1 className="text-2xl font-bold">Salva el Semestre</h1>
@@ -274,25 +246,15 @@
                             </button>
                         </div>
 
-                        {/* Tabs */}
                         <div className="flex border-b border-slate-100">
-                            <button onClick={() => setActiveTab('calculator')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'calculator' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50' : 'text-slate-400 hover:text-slate-600'}`}>
-                                <IconCalculator /> Notas
-                            </button>
-                            <button onClick={() => setActiveTab('panic')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'panic' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50/50' : 'text-slate-400 hover:text-slate-600'}`}>
-                                <IconActivity /> Pánico
-                            </button>
-                            <button onClick={() => setActiveTab('annual')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'annual' ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-50/50' : 'text-slate-400 hover:text-slate-600'}`}>
-                                <IconTrophy /> Anual
-                            </button>
-                             <button onClick={() => setActiveTab('promotion')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'promotion' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600'}`}>
-                                <IconList /> Acta
-                            </button>
+                            <button onClick={() => setActiveTab('calculator')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'calculator' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50' : 'text-slate-400 hover:text-slate-600'}`}><IconCalculator /> Notas</button>
+                            <button onClick={() => setActiveTab('panic')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'panic' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50/50' : 'text-slate-400 hover:text-slate-600'}`}><IconActivity /> Pánico</button>
+                            <button onClick={() => setActiveTab('annual')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'annual' ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-50/50' : 'text-slate-400 hover:text-slate-600'}`}><IconTrophy /> Anual</button>
+                             <button onClick={() => setActiveTab('promotion')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'promotion' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600'}`}><IconList /> Acta</button>
                         </div>
 
                         <div className="p-6 space-y-6">
                             
-                            {/* Input Global (Solo visible si NO estamos en acta) */}
                             {activeTab !== 'promotion' && (
                                 <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
                                     <label className="text-sm font-semibold text-slate-700 pl-1">Nota para aprobar (Azul):</label>
@@ -359,31 +321,27 @@
                             {/* --- TAB: ANUAL --- */}
                             {activeTab === 'annual' && (
                                 <div className="animate-fade-in space-y-4">
-                                    {/* 1. Datos de la Asignatura Actual */}
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100 flex flex-col justify-center items-center">
                                             <label className="block text-center text-orange-800 font-semibold mb-2 text-xs uppercase">Prom. 1er Sem</label>
-                                            <input type="number" placeholder="--" value={semester1Avg} onChange={(e) => setSemester1Avg(e.target.value)} className="w-full p-2 text-center text-xl font-bold text-orange-900 bg-white border-2 border-orange-200 rounded-xl focus:outline-none focus:border-orange-500 transition-all placeholder:text-orange-200" />
+                                            <input type="number" step="0.1" placeholder="--" value={semester1Avg} onChange={(e) => setSemester1Avg(e.target.value)} className="w-full p-2 text-center text-xl font-bold text-orange-900 bg-white border-2 border-orange-200 rounded-xl focus:outline-none focus:border-orange-500 transition-all placeholder:text-orange-200" />
                                         </div>
-                                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col justify-center items-center">
-                                            <label className="block text-center text-slate-500 font-semibold mb-2 text-xs uppercase">Actual 2do Sem</label>
-                                            <div className={`text-xl font-bold ${currentAverage > 0 ? 'text-indigo-600' : 'text-slate-300'}`}>{currentAverage > 0 ? currentAverage : '--'}</div>
-                                            <p className="text-[10px] text-slate-400 mt-1">Desde pestaña Notas</p>
+                                        <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100 flex flex-col justify-center items-center">
+                                            <label className="block text-center text-indigo-800 font-semibold mb-2 text-xs uppercase">Prom. 2do Sem</label>
+                                            <input type="number" step="0.1" placeholder="--" value={semester2Avg} onChange={(e) => setSemester2Avg(e.target.value)} className="w-full p-2 text-center text-xl font-bold text-indigo-600 bg-white border-2 border-indigo-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-all placeholder:text-indigo-200" />
                                         </div>
                                     </div>
                                     
-                                    {/* 2. Proyección Actual */}
                                     {projectedAnnual ? (
                                         <>
                                             <div className={`p-4 rounded-xl border-l-4 shadow-sm flex justify-between items-center transition-colors ${projectedAnnual >= 4.0 ? 'bg-indigo-50 border-indigo-500 text-indigo-900' : 'bg-red-50 border-red-500 text-red-900'}`}>
                                                 <div>
-                                                    <p className="text-xs font-bold uppercase opacity-70">Promedio Anual (Esta asignatura)</p>
+                                                    <p className="text-xs font-bold uppercase opacity-70">Promedio Anual</p>
                                                     <p className="text-xs opacity-80">{projectedAnnual >= 4.0 ? 'Esta la pasas ✅' : 'Esta te da rojo ❌'}</p>
                                                 </div>
                                                 <div className="text-3xl font-black">{projectedAnnual}</div>
                                             </div>
 
-                                            {/* 3. Panel de Contexto Global */}
                                             <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
                                                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 text-center border-b pb-2">Simulador de Repitencia</h3>
                                                 
@@ -402,7 +360,7 @@
                                                         <input 
                                                             type="number" 
                                                             step="0.1"
-                                                            placeholder={projectedAnnual} // Placeholder es el promedio actual
+                                                            placeholder={projectedAnnual}
                                                             value={generalAvgInput} 
                                                             onChange={(e) => setGeneralAvgInput(e.target.value)} 
                                                             className="w-full h-[34px] text-center text-sm font-bold bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-orange-500" 
@@ -411,7 +369,6 @@
                                                     </div>
                                                 </div>
 
-                                                {/* 4. Veredicto Final */}
                                                 {verdict && (
                                                     <div className={`rounded-xl p-3 text-center transition-all animate-fade-in ${verdict.passed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                                         <p className="text-lg font-black uppercase mb-1">{verdict.passed ? '¡PASAS DE CURSO! 🎉' : 'REPITES EL AÑO 💀'}</p>
@@ -425,8 +382,8 @@
                                         </>
                                     ) : (
                                         <div className="text-center p-6 bg-slate-50 rounded-2xl border border-slate-100 text-slate-400">
-                                            <IconCalendar />
-                                            <p className="text-sm mt-2">Ingresa tu promedio del 1er semestre para ver si pasas.</p>
+                                            <IconTrophy className="mx-auto mb-2 opacity-50" />
+                                            <p className="text-sm mt-2">Ingresa tus promedios para calcular tu situación final.</p>
                                         </div>
                                     )}
                                 </div>
@@ -437,20 +394,13 @@
                                 <div className="animate-fade-in space-y-4">
                                     <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
                                         <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-2 text-center">Cierre de Año Escolar</h3>
-                                        <p className="text-xs text-blue-600 text-center mb-4">Ingresa tus promedios finales cerrados. Calcularemos si pasas por el reglamento de promoción.</p>
+                                        <p className="text-xs text-blue-600 text-center mb-4">Ingresa tus promedios finales cerrados.</p>
                                         
-                                        {/* Dashboard Resumen */}
                                         {promoStatus && (
                                             <div className={`p-4 rounded-xl border mb-4 text-center shadow-sm transition-all ${promoStatus.passed ? 'bg-green-100 border-green-300 text-green-900' : 'bg-red-100 border-red-300 text-red-900'}`}>
                                                 <div className="flex justify-around items-center mb-2">
-                                                    <div>
-                                                        <span className="block text-[10px] uppercase font-bold opacity-60">Promedio General</span>
-                                                        <span className="text-2xl font-black">{promoStatus.generalAvg}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="block text-[10px] uppercase font-bold opacity-60">Rojos</span>
-                                                        <span className="text-2xl font-black">{promoStatus.redCount}</span>
-                                                    </div>
+                                                    <div><span className="block text-[10px] uppercase font-bold opacity-60">Promedio General</span><span className="text-2xl font-black">{promoStatus.generalAvg}</span></div>
+                                                    <div><span className="block text-[10px] uppercase font-bold opacity-60">Rojos</span><span className="text-2xl font-black">{promoStatus.redCount}</span></div>
                                                 </div>
                                                 <p className="text-sm font-bold border-t border-black/10 pt-2 mt-2">{promoStatus.message}</p>
                                             </div>
@@ -465,18 +415,13 @@
                                                 
                                                 return (
                                                     <div key={sub.id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-2">
-                                                        {/* Fila Principal */}
                                                         <div className="flex items-center gap-2">
                                                             <input type="text" placeholder={`Asignatura ${index + 1}`} value={sub.name} onChange={(e) => updateSubject(sub.id, 'name', e.target.value)} className="flex-1 p-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500" />
-                                                            
                                                             <div className="relative">
                                                                 <input type="number" step="0.1" placeholder="--" value={sub.avg} onChange={(e) => updateSubject(sub.id, 'avg', e.target.value)} className={`w-16 p-2 text-center font-bold text-lg border rounded-lg focus:outline-none focus:border-blue-500 ${isRed ? 'text-red-600 bg-red-50 border-red-200' : 'text-slate-700 bg-slate-50 border-slate-200'}`} />
                                                             </div>
-
                                                             <button onClick={() => removeSubject(sub.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><IconTrash /></button>
                                                         </div>
-
-                                                        {/* Calculadora de Salvación (Solo si es rojo) */}
                                                         {isRed && (
                                                             <div className="bg-yellow-50 rounded-lg p-3 flex flex-row items-center justify-between text-xs animate-fade-in border border-yellow-200">
                                                                 <div className="flex flex-col gap-1">
