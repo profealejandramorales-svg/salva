@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de NEM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Oculta los botones de incremento/decremento en los campos de tipo number */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4 bg-gray-100">
+
+    <div class="w-full max-w-lg bg-white p-8 rounded-2xl shadow-xl">
+        <h1 class="text-4xl font-extrabold text-center text-gray-800 mb-6">
+            Calculadora de NEM
+        </h1>
+        <p class="text-center text-gray-600 mb-8">
+            Ingresa tus promedios de 1° a 4° medio para calcular tu Puntaje de Notas de Enseñanza Media (NEM) según la tabla DEMRE para la **modalidad Técnico Profesional**.
+        </p>
+
+        <div id="inputs-container" class="space-y-6">
+            <!-- Contenedores de notas -->
+            <div>
+                <label for="grade1" class="block text-sm font-medium text-gray-700 mb-1">1° Medio</label>
+                <input type="number" id="grade1" value="6.0" min="1.0" max="7.0" step="0.1" class="grade-input w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
+            </div>
+            <div>
+                <label for="grade2" class="block text-sm font-medium text-gray-700 mb-1">2° Medio</label>
+                <input type="number" id="grade2" value="6.2" min="1.0" max="7.0" step="0.1" class="grade-input w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
+            </div>
+            <div>
+                <label for="grade3" class="block text-sm font-medium text-gray-700 mb-1">3° Medio</label>
+                <input type="number" id="grade3" value="6.5" min="1.0" max="7.0" step="0.1" class="grade-input w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
+            </div>
+            <div>
+                <label for="grade4" class="block text-sm font-medium text-gray-700 mb-1">4° Medio</label>
+                <input type="number" id="grade4" value="6.8" min="1.0" max="7.0" step="0.1" class="grade-input w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
+            </div>
+        </div>
+
+        <div class="mt-8 text-center bg-blue-100 border-2 border-blue-200 p-6 rounded-2xl shadow-inner">
+            <h2 class="text-xl font-semibold text-blue-800">Tu Puntaje NEM es:</h2>
+            <div id="nem-score-display" class="mt-2 text-5xl font-extrabold text-blue-600">
+                <!-- El NEM se mostrará aquí -->
+            </div>
+        </div>
+
+        <div id="error-message" class="mt-4 text-center text-red-500 font-medium hidden">
+            <!-- Los mensajes de error se mostrarán aquí -->
+        </div>
+        
+    </div>
+
+    <script>
+        // Obtener referencias a los elementos del DOM
+        const gradeInputs = document.querySelectorAll('.grade-input');
+        const nemScoreDisplay = document.getElementById('nem-score-display');
+        const errorMessageDisplay = document.getElementById('error-message');
+
+        // Tabla de equivalencia DEMRE para Técnico Profesional (Grupo C) basada en el archivo proporcionado.
+        const nemTable = [
+            { grade: 4.00, nem: 100 }, { grade: 4.01, nem: 103 }, { grade: 4.02, nem: 105 }, { grade: 4.03, nem: 109 }, { grade: 4.04, nem: 112 },
+            { grade: 4.05, nem: 115 }, { grade: 4.06, nem: 118 }, { grade: 4.07, nem: 122 }, { grade: 4.08, nem: 124 }, { grade: 4.09, nem: 128 },
+            { grade: 4.10, nem: 131 }, { grade: 4.11, nem: 135 }, { grade: 4.12, nem: 137 }, { grade: 4.13, nem: 141 }, { grade: 4.14, nem: 144 },
+            { grade: 4.15, nem: 148 }, { grade: 4.16, nem: 150 }, { grade: 4.17, nem: 154 }, { grade: 4.18, nem: 157 }, { grade: 4.19, nem: 160 },
+            { grade: 4.20, nem: 163 }, { grade: 4.21, nem: 166 }, { grade: 4.22, nem: 169 }, { grade: 4.23, nem: 172 }, { grade: 4.24, nem: 176 },
+            { grade: 4.25, nem: 178 }, { grade: 4.26, nem: 182 }, { grade: 4.27, nem: 185 }, { grade: 4.28, nem: 189 }, { grade: 4.29, nem: 191 },
+            { grade: 4.30, nem: 195 }, { grade: 4.31, nem: 198 }, { grade: 4.32, nem: 202 }, { grade: 4.33, nem: 204 }, { grade: 4.34, nem: 208 },
+            { grade: 4.35, nem: 211 }, { grade: 4.36, nem: 214 }, { grade: 4.37, nem: 217 }, { grade: 4.38, nem: 221 }, { grade: 4.39, nem: 223 },
+            { grade: 4.40, nem: 226 }, { grade: 4.41, nem: 230 }, { grade: 4.42, nem: 233 }, { grade: 4.43, nem: 237 }, { grade: 4.44, nem: 240 },
+            { grade: 4.45, nem: 243 }, { grade: 4.46, nem: 246 }, { grade: 4.47, nem: 250 }, { grade: 4.48, nem: 253 }, { grade: 4.49, nem: 257 },
+            { grade: 4.50, nem: 260 }, { grade: 4.51, nem: 263 }, { grade: 4.52, nem: 266 }, { grade: 4.53, nem: 270 }, { grade: 4.54, nem: 273 },
+            { grade: 4.55, nem: 276 }, { grade: 4.56, nem: 280 }, { grade: 4.57, nem: 283 }, { grade: 4.58, nem: 287 }, { grade: 4.59, nem: 290 },
+            { grade: 4.60, nem: 293 }, { grade: 4.61, nem: 296 }, { grade: 4.62, nem: 300 }, { grade: 4.63, nem: 303 }, { grade: 4.64, nem: 307 },
+            { grade: 4.65, nem: 310 }, { grade: 4.66, nem: 313 }, { grade: 4.67, nem: 317 }, { grade: 4.68, nem: 320 }, { grade: 4.69, nem: 323 },
+            { grade: 4.70, nem: 326 }, { grade: 4.71, nem: 330 }, { grade: 4.72, nem: 333 }, { grade: 4.73, nem: 337 }, { grade: 4.74, nem: 340 },
+            { grade: 4.75, nem: 343 }, { grade: 4.76, nem: 346 }, { grade: 4.77, nem: 350 }, { grade: 4.78, nem: 353 }, { grade: 4.79, nem: 357 },
+            { grade: 4.80, nem: 360 }, { grade: 4.81, nem: 363 }, { grade: 4.82, nem: 366 }, { grade: 4.83, nem: 370 }, { grade: 4.84, nem: 373 },
+            { grade: 4.85, nem: 376 }, { grade: 4.86, nem: 380 }, { grade: 4.87, nem: 383 }, { grade: 4.88, nem: 387 }, { grade: 4.89, nem: 390 },
+            { grade: 4.90, nem: 393 }, { grade: 4.91, nem: 396 }, { grade: 4.92, nem: 400 }, { grade: 4.93, nem: 403 }, { grade: 4.94, nem: 407 },
+            { grade: 4.95, nem: 410 }, { grade: 4.96, nem: 413 }, { grade: 4.97, nem: 417 }, { grade: 4.98, nem: 420 }, { grade: 4.99, nem: 423 },
+            { grade: 5.00, nem: 426 }, { grade: 5.01, nem: 430 }, { grade: 5.02, nem: 433 }, { grade: 5.03, nem: 437 }, { grade: 5.04, nem: 440 },
+            { grade: 5.05, nem: 443 }, { grade: 5.06, nem: 446 }, { grade: 5.07, nem: 450 }, { grade: 5.08, nem: 453 }, { grade: 5.09, nem: 457 },
+            { grade: 5.10, nem: 460 }, { grade: 5.11, nem: 463 }, { grade: 5.12, nem: 466 }, { grade: 5.13, nem: 470 }, { grade: 5.14, nem: 473 },
+            { grade: 5.15, nem: 476 }, { grade: 5.16, nem: 480 }, { grade: 5.17, nem: 483 }, { grade: 5.18, nem: 487 }, { grade: 5.19, nem: 490 },
+            { grade: 5.20, nem: 493 }, { grade: 5.21, nem: 496 }, { grade: 5.22, nem: 500 }, { grade: 5.23, nem: 503 }, { grade: 5.24, nem: 507 },
+            { grade: 5.25, nem: 510 }, { grade: 5.26, nem: 513 }, { grade: 5.27, nem: 517 }, { grade: 5.28, nem: 520 }, { grade: 5.29, nem: 523 },
+            { grade: 5.30, nem: 526 }, { grade: 5.31, nem: 529 }, { grade: 5.32, nem: 532 }, { grade: 5.33, nem: 535 }, { grade: 5.34, nem: 538 },
+            { grade: 5.35, nem: 541 }, { grade: 5.36, nem: 545 }, { grade: 5.37, nem: 547 }, { grade: 5.38, nem: 551 }, { grade: 5.39, nem: 554 },
+            { grade: 5.40, nem: 558 }, { grade: 5.41, nem: 560 }, { grade: 5.42, nem: 564 }, { grade: 5.43, nem: 567 }, { grade: 5.44, nem: 571 },
+            { grade: 5.45, nem: 572 }, { grade: 5.46, nem: 574 }, { grade: 5.47, nem: 577 }, { grade: 5.48, nem: 580 }, { grade: 5.49, nem: 582 },
+            { grade: 5.50, nem: 585 }, { grade: 5.51, nem: 587 }, { grade: 5.52, nem: 590 }, { grade: 5.53, nem: 592 }, { grade: 5.54, nem: 595 },
+            { grade: 5.55, nem: 598 }, { grade: 5.56, nem: 601 }, { grade: 5.57, nem: 604 }, { grade: 5.58, nem: 607 }, { grade: 5.59, nem: 609 },
+            { grade: 5.60, nem: 613 }, { grade: 5.61, nem: 616 }, { grade: 5.62, nem: 618 }, { grade: 5.63, nem: 621 }, { grade: 5.64, nem: 623 },
+            { grade: 5.65, nem: 627 }, { grade: 5.66, nem: 630 }, { grade: 5.67, nem: 632 }, { grade: 5.68, nem: 635 }, { grade: 5.69, nem: 637 },
+            { grade: 5.70, nem: 641 }, { grade: 5.71, nem: 644 }, { grade: 5.72, nem: 646 }, { grade: 5.73, nem: 650 }, { grade: 5.74, nem: 652 },
+            { grade: 5.75, nem: 656 }, { grade: 5.76, nem: 659 }, { grade: 5.77, nem: 663 }, { grade: 5.78, nem: 666 }, { grade: 5.79, nem: 669 },
+            { grade: 5.80, nem: 672 }, { grade: 5.81, nem: 676 }, { grade: 5.82, nem: 679 }, { grade: 5.83, nem: 683 }, { grade: 5.84, nem: 686 },
+            { grade: 5.85, nem: 689 }, { grade: 5.86, nem: 692 }, { grade: 5.87, nem: 696 }, { grade: 5.88, nem: 699 }, { grade: 5.89, nem: 703 },
+            { grade: 5.90, nem: 706 }, { grade: 5.91, nem: 709 }, { grade: 5.92, nem: 713 }, { grade: 5.93, nem: 716 }, { grade: 5.94, nem: 719 },
+            { grade: 5.95, nem: 722 }, { grade: 5.96, nem: 726 }, { grade: 5.97, nem: 729 }, { grade: 5.98, nem: 733 }, { grade: 5.99, nem: 736 },
+            { grade: 6.00, nem: 739 }, { grade: 6.01, nem: 742 }, { grade: 6.02, nem: 746 }, { grade: 6.03, nem: 749 }, { grade: 6.04, nem: 753 },
+            { grade: 6.05, nem: 756 }, { grade: 6.06, nem: 759 }, { grade: 6.07, nem: 763 }, { grade: 6.08, nem: 766 }, { grade: 6.09, nem: 769 },
+            { grade: 6.10, nem: 772 }, { grade: 6.11, nem: 776 }, { grade: 6.12, nem: 779 }, { grade: 6.13, nem: 783 }, { grade: 6.14, nem: 786 },
+            { grade: 6.15, nem: 789 }, { grade: 6.16, nem: 792 }, { grade: 6.17, nem: 796 }, { grade: 6.18, nem: 799 }, { grade: 6.19, nem: 803 },
+            { grade: 6.20, nem: 806 }, { grade: 6.21, nem: 809 }, { grade: 6.22, nem: 813 }, { grade: 6.23, nem: 816 }, { grade: 6.24, nem: 819 },
+            { grade: 6.25, nem: 822 }, { grade: 6.26, nem: 826 }, { grade: 6.27, nem: 829 }, { grade: 6.28, nem: 833 }, { grade: 6.29, nem: 836 },
+            { grade: 6.30, nem: 839 }, { grade: 6.31, nem: 842 }, { grade: 6.32, nem: 846 }, { grade: 6.33, nem: 849 }, { grade: 6.34, nem: 853 },
+            { grade: 6.35, nem: 856 }, { grade: 6.36, nem: 859 }, { grade: 6.37, nem: 863 }, { grade: 6.38, nem: 866 }, { grade: 6.39, nem: 869 },
+            { grade: 6.40, nem: 872 }, { grade: 6.41, nem: 876 }, { grade: 6.42, nem: 879 }, { grade: 6.43, nem: 883 }, { grade: 6.44, nem: 886 },
+            { grade: 6.45, nem: 889 }, { grade: 6.46, nem: 892 }, { grade: 6.47, nem: 896 }, { grade: 6.48, nem: 899 }, { grade: 6.49, nem: 903 },
+            { grade: 6.50, nem: 906 }, { grade: 6.51, nem: 909 }, { grade: 6.52, nem: 913 }, { grade: 6.53, nem: 916 }, { grade: 6.54, nem: 919 },
+            { grade: 6.55, nem: 922 }, { grade: 6.56, nem: 926 }, { grade: 6.57, nem: 929 }, { grade: 6.58, nem: 933 }, { grade: 6.59, nem: 936 },
+            { grade: 6.60, nem: 939 }, { grade: 6.61, nem: 942 }, { grade: 6.62, nem: 946 }, { grade: 6.63, nem: 949 }, { grade: 6.64, nem: 953 },
+            { grade: 6.65, nem: 956 }, { grade: 6.66, nem: 959 }, { grade: 6.67, nem: 963 }, { grade: 6.68, nem: 966 }, { grade: 6.69, nem: 969 },
+            { grade: 6.70, nem: 972 }, { grade: 6.71, nem: 976 }, { grade: 6.72, nem: 979 }, { grade: 6.73, nem: 983 }, { grade: 6.74, nem: 986 },
+            { grade: 6.75, nem: 989 }, { grade: 6.76, nem: 992 }, { grade: 6.77, nem: 996 }, { grade: 6.78, nem: 999 }, { grade: 6.79, nem: 1000 },
+            { grade: 6.80, nem: 1000 }, { grade: 6.81, nem: 1000 }, { grade: 6.82, nem: 1000 }, { grade: 6.83, nem: 1000 }, { grade: 6.84, nem: 1000 },
+            { grade: 6.85, nem: 1000 }, { grade: 6.86, nem: 1000 }, { grade: 6.87, nem: 1000 }, { grade: 6.88, nem: 1000 }, { grade: 6.89, nem: 1000 },
+            { grade: 6.90, nem: 1000 }, { grade: 6.91, nem: 1000 }, { grade: 6.92, nem: 1000 }, { grade: 6.93, nem: 1000 }, { grade: 6.94, nem: 1000 },
+            { grade: 6.95, nem: 1000 }, { grade: 6.96, nem: 1000 }, { grade: 6.97, nem: 1000 }, { grade: 6.98, nem: 1000 }, { grade: 6.99, nem: 1000 },
+            { grade: 7.00, nem: 1000 }
+        ];
+
+        // Función para validar un valor de nota
+        function isValidGrade(grade) {
+            return !isNaN(grade) && grade >= 1.0 && grade <= 7.0;
+        }
+
+        // Función para calcular el NEM
+        function calculateNEM() {
+            try {
+                // Obtener los valores de las notas y convertirlos a números
+                const grades = Array.from(gradeInputs).map(input => parseFloat(input.value));
+                
+                // Validar que todas las notas son correctas
+                for (const grade of grades) {
+                    if (!isValidGrade(grade)) {
+                        errorMessageDisplay.textContent = 'Por favor, ingresa promedios válidos entre 1.0 y 7.0.';
+                        errorMessageDisplay.classList.remove('hidden');
+                        nemScoreDisplay.textContent = 'N/A';
+                        return;
+                    }
+                }
+
+                // Ocultar el mensaje de error si la validación es exitosa
+                errorMessageDisplay.classList.add('hidden');
+
+                // Calcular el promedio simple de las cuatro notas
+                const averageGrade = grades.reduce((sum, current) => sum + current, 0) / 4;
+                const roundedAverage = parseFloat(averageGrade.toFixed(2));
+
+                // Buscar el puntaje NEM en la tabla (método más robusto para evitar errores de precisión)
+                let foundNem = null;
+                let minDifference = Infinity;
+
+                for (const entry of nemTable) {
+                    const difference = Math.abs(entry.grade - roundedAverage);
+                    if (difference < minDifference) {
+                        minDifference = difference;
+                        foundNem = entry.nem;
+                    }
+                }
+                
+                // Si se encuentra el NEM, mostrar el resultado
+                if (foundNem !== null) {
+                    nemScoreDisplay.textContent = foundNem.toFixed(0);
+                } else {
+                    errorMessageDisplay.textContent = 'No se pudo encontrar un puntaje NEM para el promedio ingresado.';
+                    errorMessageDisplay.classList.remove('hidden');
+                    nemScoreDisplay.textContent = 'N/A';
+                }
+
+            } catch (error) {
+                errorMessageDisplay.textContent = 'Hubo un error en el cálculo. Por favor, verifica las notas.';
+                errorMessageDisplay.classList.remove('hidden');
+                nemScoreDisplay.textContent = 'N/A';
+                console.error("Error calculating NEM:", error);
+            }
+        }
+
+        // Agregar un 'event listener' a cada campo de entrada para recalcular el NEM en tiempo real
+        gradeInputs.forEach(input => {
+            input.addEventListener('input', calculateNEM);
+        });
+
+        // Calcular el NEM inicial al cargar la página
+        window.onload = calculateNEM;
+    </script>
+</body>
+</html>

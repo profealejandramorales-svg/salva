@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Notas Pro - ProfeAle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #f0f4f3; }
+        .input-group { position: relative; }
+        .input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+        .input-field { padding-left: 36px; transition: all 0.2s; }
+        .input-field:focus { border-color: #157347; box-shadow: 0 0 0 3px rgba(21, 115, 71, 0.1); outline: none; }
+        .grade-display { font-variant-numeric: tabular-nums; transition: color 0.3s; }
+        
+        /* Estilos de Pestañas */
+        .tab-btn { border-bottom: 3px solid transparent; color: #6c757d; }
+        .tab-btn.active { border-bottom-color: #157347; color: #157347; font-weight: bold; background-color: #f0fdf4; }
+        
+        /* Ocultar secciones */
+        .tab-content { display: none; animation: fadeIn 0.3s ease-out; }
+        .tab-content.active { display: block; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200">
+        <div class="bg-[#157347] p-5 text-center">
+            <h1 class="text-xl font-bold text-white flex items-center justify-center gap-2">
+                <i class="fa-solid fa-calculator"></i> Calculadora de Notas
+            </h1>
+            <p class="text-emerald-100 text-xs mt-1">Herramienta de Evaluación Docente</p>
+        </div>
+
+        <div class="flex border-b border-slate-200">
+            <button onclick="switchTab('puntos')" id="tab-puntos" class="tab-btn active flex-1 py-3 text-sm font-medium transition-all">
+                <i class="fa-solid fa-star-half-stroke mr-1"></i> Escala
+            </button>
+            <button onclick="switchTab('rubrica')" id="tab-rubrica" class="tab-btn flex-1 py-3 text-sm font-medium transition-all">
+                <i class="fa-solid fa-list-check mr-1"></i> Rúbrica
+            </button>
+            <button onclick="switchTab('ponderada')" id="tab-ponderada" class="tab-btn flex-1 py-3 text-sm font-medium transition-all">
+                <i class="fa-solid fa-percent mr-1"></i> Ponderada
+            </button>
+        </div>
+
+        <div class="p-6">
+            
+            <div id="view-puntos" class="tab-content active space-y-5">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="input-group">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Puntaje Máximo</label>
+                        <i class="fa-solid fa-trophy input-icon"></i>
+                        <input type="number" id="max-score" value="100" class="w-full border border-slate-300 rounded-lg py-2 input-field font-bold text-slate-700" oninput="calcPuntos()">
+                    </div>
+                    <div class="input-group">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Exigencia</label>
+                        <select id="exigencia" onchange="calcPuntos()" class="w-full border border-slate-300 rounded-lg py-2 pl-2 font-bold text-slate-700 bg-white focus:outline-none focus:border-[#157347]">
+                            <option value="0.6">60% (Normal)</option>
+                            <option value="0.7">70% (Ausencia)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 text-center">
+                    <label class="block text-sm font-bold text-slate-600 mb-2">Puntaje del Alumno</label>
+                    <div class="flex items-center justify-center gap-4">
+                        <button onclick="adjustScore(-1)" class="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 transition"><i class="fa-solid fa-minus"></i></button>
+                        <input type="number" id="student-score" placeholder="0" class="w-24 text-center text-4xl font-black bg-transparent border-b-2 border-slate-300 focus:border-[#157347] outline-none text-slate-800" oninput="calcPuntos()">
+                        <button onclick="adjustScore(1)" class="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 transition"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">NOTA FINAL</p>
+                    <div id="final-grade-puntos" class="text-6xl font-black grade-display text-slate-300">--</div>
+                </div>
+            </div>
+
+            <div id="view-rubrica" class="tab-content space-y-4">
+                <div class="flex justify-between items-center bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                    <span class="text-xs font-bold text-emerald-800 uppercase">Exigencia Rúbrica:</span>
+                    <div class="flex gap-2">
+                        <button onclick="setRubricExigency(0.6)" id="rub-btn-60" class="px-3 py-1 rounded text-xs font-bold bg-white text-emerald-700 shadow-sm border">60%</button>
+                        <button onclick="setRubricExigency(0.7)" id="rub-btn-70" class="px-3 py-1 rounded text-xs font-bold text-emerald-600 hover:bg-white">70%</button>
+                    </div>
+                </div>
+
+                <div id="rubric-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    </div>
+
+                <button onclick="addRubricRow()" class="w-full py-2 border-2 border-dashed border-slate-300 rounded-lg text-slate-400 text-sm font-bold hover:text-[#157347] hover:border-[#157347] transition">
+                    <i class="fa-solid fa-plus"></i> Agregar Criterio
+                </button>
+
+                <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                    <div class="text-center">
+                        <p class="text-[10px] uppercase font-bold text-slate-400">Total Puntos</p>
+                        <p id="rubric-total" class="text-xl font-bold text-slate-700">0 / 0</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-[10px] uppercase font-bold text-slate-400">Nota</p>
+                        <p id="final-grade-rubrica" class="text-3xl font-black text-slate-300">--</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-ponderada" class="tab-content space-y-4">
+                <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-center">
+                    <p class="text-xs text-yellow-800 font-bold"><i class="fa-solid fa-circle-info mr-1"></i> La suma de % debe ser 100%</p>
+                </div>
+
+                <div id="weighted-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    </div>
+
+                <button onclick="addWeightedRow()" class="w-full py-2 border-2 border-dashed border-slate-300 rounded-lg text-slate-400 text-sm font-bold hover:text-[#157347] hover:border-[#157347] transition">
+                    <i class="fa-solid fa-plus"></i> Agregar Evaluación
+                </button>
+
+                <div class="text-center pt-2 border-t border-slate-100">
+                    <div class="flex justify-between items-end mb-1 px-4">
+                        <span class="text-xs font-bold text-slate-400">Total %: <span id="total-percent" class="text-slate-700">0%</span></span>
+                        <span class="text-xs font-bold text-slate-400">Promedio</span>
+                    </div>
+                    <div id="final-grade-ponderada" class="text-5xl font-black grade-display text-slate-300">--</div>
+                </div>
+            </div>
+
+        </div>
+        
+        <div class="bg-slate-50 p-3 text-center border-t border-slate-200">
+            <a href="index.html" class="text-xs font-bold text-slate-500 hover:text-[#157347] transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-house"></i> Volver al Portal
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN GLOBAL ---
+        const NOTA_MIN = 2.0;
+        const NOTA_MAX = 7.0;
+        const NOTA_APROB = 4.0;
+        let rubExigency = 0.6;
+
+        // --- INICIALIZACIÓN ---
+        window.onload = function() {
+            // Cargar filas iniciales
+            addRubricRow(); addRubricRow();
+            addWeightedRow(); addWeightedRow();
+        };
+
+        // --- SISTEMA DE PESTAÑAS ---
+        function switchTab(tabId) {
+            // Botones
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+            
+            // Contenido
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById('view-' + tabId).classList.add('active');
+        }
+
+        // === LÓGICA 1: ESCALA DE PUNTOS ===
+        function adjustScore(delta) {
+            const input = document.getElementById('student-score');
+            let val = parseFloat(input.value) || 0;
+            const max = parseFloat(document.getElementById('max-score').value) || 100;
+            val += delta;
+            if (val < 0) val = 0; if (val > max) val = max;
+            input.value = val;
+            calcPuntos();
+        }
+
+        function calcPuntos() {
+            const max = parseFloat(document.getElementById('max-score').value) || 100;
+            const obt = parseFloat(document.getElementById('student-score').value);
+            const exig = parseFloat(document.getElementById('exigencia').value);
+            const display = document.getElementById('final-grade-puntos');
+
+            if (isNaN(obt)) { display.innerText = "--"; display.className = "text-6xl font-black grade-display text-slate-300"; return; }
+
+            const nota = calculateGradeFormula(obt, max, exig);
+            updateGradeDisplay(display, nota, '6xl');
+        }
+
+        // === LÓGICA 2: RÚBRICA ===
+        function setRubricExigency(val) {
+            rubExigency = val;
+            document.getElementById('rub-btn-60').className = val === 0.6 ? "px-3 py-1 rounded text-xs font-bold bg-white text-emerald-700 shadow-sm border" : "px-3 py-1 rounded text-xs font-bold text-emerald-600 hover:bg-white";
+            document.getElementById('rub-btn-70').className = val === 0.7 ? "px-3 py-1 rounded text-xs font-bold bg-white text-emerald-700 shadow-sm border" : "px-3 py-1 rounded text-xs font-bold text-emerald-600 hover:bg-white";
+            calcRubrica();
+        }
+
+        function addRubricRow() {
+            const div = document.createElement('div');
+            div.className = "flex gap-2 items-center bg-white p-2 rounded-lg border border-slate-100 shadow-sm rubric-row";
+            div.innerHTML = `
+                <input type="text" placeholder="Criterio" class="flex-1 p-1 text-sm bg-transparent border-b border-transparent focus:border-emerald-500 focus:outline-none">
+                <input type="number" placeholder="Pts" class="rub-obt w-12 p-1 text-center font-bold bg-emerald-50 rounded text-emerald-800 text-sm focus:outline-none" oninput="calcRubrica()">
+                <span class="text-slate-400">/</span>
+                <input type="number" placeholder="Max" class="rub-max w-12 p-1 text-center font-bold bg-slate-100 rounded text-slate-600 text-sm focus:outline-none" oninput="calcRubrica()">
+                <button onclick="this.parentElement.remove(); calcRubrica()" class="text-slate-300 hover:text-red-500 px-2"><i class="fa-solid fa-trash"></i></button>
+            `;
+            document.getElementById('rubric-list').appendChild(div);
+        }
+
+        function calcRubrica() {
+            let totalMax = 0, totalObt = 0;
+            document.querySelectorAll('.rubric-row').forEach(row => {
+                const max = parseFloat(row.querySelector('.rub-max').value) || 0;
+                const obt = parseFloat(row.querySelector('.rub-obt').value) || 0;
+                totalMax += max;
+                totalObt += obt;
+            });
+
+            document.getElementById('rubric-total').innerText = `${totalObt} / ${totalMax}`;
+            const display = document.getElementById('final-grade-rubrica');
+
+            if (totalMax === 0) { display.innerText = "--"; display.className = "text-3xl font-black text-slate-300"; return; }
+            
+            // Ajustar obtenido si se pasa
+            if(totalObt > totalMax) totalObt = totalMax;
+
+            const nota = calculateGradeFormula(totalObt, totalMax, rubExigency);
+            updateGradeDisplay(display, nota, '3xl');
+        }
+
+        // === LÓGICA 3: PONDERADA ===
+        function addWeightedRow() {
+            const div = document.createElement('div');
+            div.className = "flex gap-2 items-center bg-white p-2 rounded-lg border border-slate-100 shadow-sm weight-row";
+            div.innerHTML = `
+                <input type="text" placeholder="Evaluación" class="flex-1 p-1 text-sm bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none">
+                <input type="number" placeholder="Nota" class="w-grade w-14 p-1 text-center font-bold bg-blue-50 rounded text-blue-800 text-sm focus:outline-none" oninput="calcPonderada()">
+                <input type="number" placeholder="%" class="w-percent w-12 p-1 text-center font-bold bg-slate-100 rounded text-slate-600 text-sm focus:outline-none" oninput="calcPonderada()">
+                <button onclick="this.parentElement.remove(); calcPonderada()" class="text-slate-300 hover:text-red-500 px-2"><i class="fa-solid fa-trash"></i></button>
+            `;
+            document.getElementById('weighted-list').appendChild(div);
+        }
+
+        function calcPonderada() {
+            let sumWeighted = 0, sumPercent = 0;
+            let hasData = false;
+
+            document.querySelectorAll('.weight-row').forEach(row => {
+                const grade = parseFloat(row.querySelector('.w-grade').value);
+                const percent = parseFloat(row.querySelector('.w-percent').value);
+                
+                if (!isNaN(grade) && !isNaN(percent)) {
+                    sumWeighted += grade * (percent / 100);
+                    sumPercent += percent;
+                    hasData = true;
+                }
+            });
+
+            const percentDisplay = document.getElementById('total-percent');
+            percentDisplay.innerText = sumPercent + "%";
+            percentDisplay.className = sumPercent === 100 ? "text-emerald-600 font-bold" : "text-red-500 font-bold";
+
+            const display = document.getElementById('final-grade-ponderada');
+            if (!hasData) { 
+                display.innerText = "--"; 
+                display.className = "text-5xl font-black grade-display text-slate-300"; 
+                return; 
+            }
+
+            // Nota final (redondeada a 1 decimal)
+            const final = Math.round(sumWeighted * 10) / 10;
+            updateGradeDisplay(display, final, '5xl');
+        }
+
+        // === FÓRMULA MAESTRA MINEDUC (Lineal) ===
+        function calculateGradeFormula(score, maxScore, exigency) {
+            if (score < 0) score = 0;
+            if (score > maxScore) score = maxScore;
+            
+            const cutScore = maxScore * exigency;
+            let grade;
+
+            if (score < cutScore) {
+                // Escala Inferior: (Puntaje / Corte) * (4.0 - 2.0) + 2.0
+                grade = NOTA_MIN + (NOTA_APROB - NOTA_MIN) * (score / cutScore);
+            } else {
+                // Escala Superior: ((Puntaje - Corte) / (Max - Corte)) * (7.0 - 4.0) + 4.0
+                grade = NOTA_APROB + (NOTA_MAX - NOTA_APROB) * ((score - cutScore) / (maxScore - cutScore));
+            }
+            return Math.round(grade * 10) / 10;
+        }
+
+        // === HELPER UI ===
+        function updateGradeDisplay(element, grade, sizeClass) {
+            element.innerText = grade.toFixed(1);
+            if (grade >= 4.0) {
+                element.className = `text-${sizeClass} font-black grade-display text-blue-600`;
+            } else {
+                element.className = `text-${sizeClass} font-black grade-display text-red-600`;
+            }
+        }
+    </script>
+</body>
+</html>
