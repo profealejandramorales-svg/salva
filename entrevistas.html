@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Entrevistas 2026</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root {
+            --primary-color: #2a9d8f; 
+            --secondary-color: #264653;
+            --bg-color: #f8f9fa;
+            --card-radius: 20px;
+            --pending-color: #ffe5e5;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Nunito', sans-serif;
+            color: #2b2d42;
+            padding-bottom: 60px;
+            overflow-x: hidden;
+        }
+
+        /* LOGIN */
+        #login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            z-index: 9999999; display: flex; justify-content: center; align-items: center; flex-direction: column;
+        }
+        .login-card {
+            background: white; padding: 40px; border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 90%; max-width: 400px; text-align: center;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        /* UI */
+        .main-container { max-width: 1100px; margin: 0 auto; filter: blur(5px); transition: 0.3s; }
+        .main-container.unlocked { filter: blur(0); }
+
+        .app-header {
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            color: white; padding: 1.5rem; border-radius: 0 0 30px 30px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1); margin-bottom: 2rem;
+        }
+
+        .glass-card { background: white; border-radius: var(--card-radius); border: none; box-shadow: 0 8px 30px rgba(0,0,0,0.05); overflow: hidden; }
+        .nav-pills .nav-link { border-radius: 50px; padding: 10px 25px; font-weight: 700; color: #6c757d; background: white; margin: 0 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.3s; }
+        .nav-pills .nav-link.active { background-color: var(--primary-color); color: white; transform: scale(1.05); }
+        .student-select { border: 2px solid #e9ecef; border-radius: 15px; padding: 15px; font-size: 1.1rem; font-weight: 600; }
+
+        .btn-ludico { border-radius: 50px; padding: 8px 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: all 0.3s ease; cursor: pointer; }
+        .btn-ludico:hover { transform: translateY(-2px); }
+        .btn-interview { background: #e9c46a; color: #4a3b00; border: none; }
+        .btn-history { background: #2a9d8f; color: white; border: none; }
+        .btn-edit { background: #6c757d; color: white; border: none; padding: 5px 10px; cursor: pointer; }
+        .btn-edit:hover { background: var(--secondary-color); }
+
+        .row-pending { background-color: var(--pending-color) !important; border-left: 5px solid #ff595e; }
+        .badge-pending { background-color: #ff595e; color: white; }
+
+        /* MODAL */
+        #customModalOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); z-index: 999999; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px);
+        }
+        .custom-modal-content {
+            background: white; width: 90%; max-width: 800px; border-radius: 25px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3); overflow: hidden; animation: slideDown 0.3s ease-out; max-height: 90vh; overflow-y: auto;
+        }
+        @keyframes slideDown { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header-custom { background: var(--secondary-color); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+
+        .footer-credit { position: fixed; bottom: 0; width: 100%; text-align: center; padding: 10px; background: white; border-top: 1px solid #eee; font-size: 0.9rem; color: #888; font-weight: bold; z-index: 999; }
+        #loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+
+        /* PRINT */
+        #print-area-single, #print-area-consolidated, #print-area-monthly { display: none; }
+        @media print {
+            body * { visibility: hidden; }
+            .print-visible, .print-visible * { visibility: visible; }
+            @page { size: letter; margin: 1.5cm; }
+            .print-mode-single #print-area-single { display: block; position: absolute; top: 0; left: 0; width: 100%; font-family: "Arial", sans-serif; font-size: 11pt; color: black; line-height: 1.4; }
+            .print-mode-monthly #print-area-monthly { display: block; position: absolute; top: 0; left: 0; width: 100%; font-family: "Arial", sans-serif; font-size: 10pt; color: black; }
+            .print-header { display: flex; align-items: center; border-bottom: 2px solid black; padding-bottom: 15px; margin-bottom: 20px; }
+            .print-logo { width: 80px; height: 80px; object-fit: contain; margin-right: 20px; }
+            .print-title-box { flex-grow: 1; text-align: center; }
+            .doc-title { font-weight: bold; text-decoration: underline; font-size: 16pt; margin: 0; }
+            .doc-row { margin-bottom: 12px; display: flex; align-items: baseline; }
+            .doc-label { font-weight: bold; margin-right: 5px; white-space: nowrap; }
+            .doc-data { border-bottom: 1px solid black; flex-grow: 1; padding-left: 10px; min-height: 20px; }
+            .doc-section { margin-top: 15px; page-break-inside: avoid; }
+            .doc-section-title { font-weight: bold; font-size: 12pt; margin-bottom: 5px; text-transform: uppercase; border-bottom: 1px solid #ccc; display: inline-block; }
+            .doc-helper-text { font-size: 0.9em; font-style: italic; display: block; margin-bottom: 2px; color: #555; }
+            .doc-multiline { width: 100%; border: 1px solid #ddd; padding: 8px; min-height: 80px; white-space: pre-wrap; margin-bottom: 5px; text-align: justify; height: auto !important; }
+            .signature-box { margin-top: 60px; display: flex; justify-content: space-between; padding: 0 30px; page-break-inside: avoid; }
+            .signature-line { width: 40%; border-top: 1px solid black; text-align: center; padding-top: 5px; font-weight: bold; }
+            .print-footer { position: fixed; bottom: 0; right: 0; font-size: 8pt; color: #999; }
+            .print-mode-consolidated #print-area-consolidated { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 20px; }
+            .print-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            .print-table th, .print-table td { border: 1px solid #000; padding: 5px; text-align: left; }
+            .no-print { display: none !important; }
+        }
+    </style>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+</head>
+<body>
+
+<div id="login-overlay">
+    <div class="login-card">
+        <img src="logo.jpg" alt="Logo Escuela" class="mb-4" style="width: 120px; height: auto;">
+        <h3 class="fw-bold mb-1">Acceso Docente</h3>
+        <p class="text-muted small mb-4">Gestión de Entrevistas 2026</p>
+        <div class="form-floating mb-3 text-start">
+            <select class="form-select" id="loginRole" onchange="checkRole()">
+                <option value="" disabled selected>¿Quién eres?</option>
+                <option value="admin">⭐ Coordinador / Admin</option>
+                <option disabled>──────────</option>
+                <option value="2A">Profesor Jefe 2A</option>
+                <option value="3A">Profesor Jefe 3A</option>
+                <option value="3C">Profesor Jefe 3C</option>
+                <option value="4A">Profesor Jefe 4A</option>
+                <option value="4C">Profesor Jefe 4C</option>
+            </select>
+            <label>Selecciona tu Rol/Curso</label>
+        </div>
+        <div class="form-floating mb-4 text-start">
+            <input type="password" class="form-control" id="loginPass" placeholder="Contraseña">
+            <label>Contraseña</label>
+        </div>
+        <button class="btn btn-dark w-100 py-3 rounded-pill fw-bold" onclick="attemptLogin()">INGRESAR AL SISTEMA</button>
+        <p id="loginError" class="text-danger mt-3 small" style="display:none;"></p>
+    </div>
+</div>
+
+<header class="app-header text-center no-print">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="badge bg-light text-dark" id="userBadge"><i class="fas fa-user me-2"></i>Usuario</span>
+        <button class="btn btn-sm btn-outline-light" onclick="location.reload()">Salir</button>
+    </div>
+    <h1 class="fw-bold mb-0 d-flex align-items-center justify-content-center">
+        <img src="logo.jpg" alt="Logo" style="height: 40px; margin-right: 10px;">
+        Gestión de Entrevistas
+    </h1>
+</header>
+
+<div class="main-container no-print" id="mainApp">
+    
+    <ul class="nav nav-pills justify-content-center mb-4" id="pills-tab">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-home"><i class="fas fa-user-graduate me-2"></i>Ficha</button></li>
+        <li class="nav-item admin-only" style="display:none;"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-students"><i class="fas fa-users-cog me-2"></i>Alumnos</button></li>
+        <li class="nav-item admin-only" style="display:none;"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-reports"><i class="fas fa-chart-pie me-2"></i>Reportes</button></li>
+        <li class="nav-item admin-only" style="display:none;"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-admin"><i class="fas fa-database me-2"></i>BD</button></li>
+    </ul>
+
+    <div class="tab-content">
+        
+        <div class="tab-pane fade show active" id="tab-home">
+            <div class="glass-card p-4 mb-4">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold" style="color:var(--secondary-color)">Curso</label>
+                        <select class="form-select student-select" id="searchCourse" onchange="filterStudentList()"><option value="">Cargando...</option></select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-bold" style="color:var(--secondary-color)">Alumno</label>
+                        <select class="form-select student-select" id="searchStudent" onchange="loadStudentProfile()" disabled><option value="">Esperando curso...</option></select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="student-view" style="display:none; animation: fadeIn 0.5s;">
+                <div class="glass-card mb-4 border-start border-5 border-success">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div>
+                                <h2 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                                    <span id="profileName">Nombre Alumno</span>
+                                    <button class="btn btn-sm btn-edit rounded-circle admin-only" style="display:none" onclick="editCurrentStudent()" title="Editar curso">
+                                        <i class="fas fa-pencil-alt"></i>
+                                    </button>
+                                </h2>
+                                <span class="badge bg-secondary rounded-pill fs-6" id="profileCourse">Curso</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-ludico btn-interview" onclick="showCustomModal()"><i class="fas fa-plus-circle me-2"></i> Entrevista</button>
+                                <button class="btn btn-ludico btn-history" onclick="printConsolidated()"><i class="fas fa-print me-2"></i> Historial</button>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row text-center mt-3">
+                            <div class="col-md-4"><small class="text-muted fw-bold">APODERADO</small><div class="fs-5" id="profileParent">--</div></div>
+                            <div class="col-md-4"><small class="text-muted fw-bold">ESTADO</small><div class="fs-5 text-success"><i class="fas fa-check-circle me-1"></i>Activo</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-4">
+                    <h5 class="fw-bold mb-3 text-secondary"><i class="fas fa-history me-2"></i>Historial del Alumno</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light"><tr><th>Fecha</th><th>Folio</th><th>Motivo</th><th class="text-end">Acciones</th></tr></thead>
+                            <tbody id="historyTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="emptyMsg" class="text-center text-muted py-4" style="display:none">Sin registros aún.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-students">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="glass-card p-4 h-100">
+                        <h5 class="fw-bold text-primary mb-3"><i class="fas fa-user-plus me-2"></i>Agregar Alumno</h5>
+                        <p class="small text-muted">Formato: APELLIDO PATERNO MATERNO, NOMBRES</p>
+                        <input type="text" class="form-control mb-3" id="newStudentName" placeholder="PEREZ LOPEZ, JUAN">
+                        <input type="text" class="form-control mb-3" id="newStudentCourse" placeholder="Ej: 2B">
+                        <button class="btn btn-primary w-100" onclick="addNewStudent()">Guardar Alumno</button>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="glass-card p-4 h-100">
+                        <h5 class="fw-bold text-danger mb-3"><i class="fas fa-list me-2"></i>Lista Global - Monitoreo</h5>
+                        <input type="text" id="filterListInput" class="form-control mb-3" placeholder="Buscar alumno..." onkeyup="filterAdminList()">
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm table-hover">
+                                <thead><tr><th>Curso</th><th>Nombre</th><th>Estado</th><th class="text-center">Cant.</th><th class="text-end">Acción</th></tr></thead>
+                                <tbody id="adminStudentList"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-reports">
+            <div class="glass-card p-4 mb-4">
+                <h4 class="fw-bold text-primary mb-3"><i class="fas fa-chart-line me-2"></i>Tablero de Control</h4>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card p-3 border-0 shadow-sm h-100"><h6 class="text-center fw-bold">Entrevistas por Mes</h6><canvas id="chartMonths"></canvas></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card p-3 border-0 shadow-sm h-100"><h6 class="text-center fw-bold">Entrevistas por Curso</h6><canvas id="chartCourses"></canvas></div>
+                    </div>
+                </div>
+            </div>
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold text-secondary"><i class="fas fa-filter me-2"></i>Listado por Mes</h5>
+                    <button class="btn btn-primary btn-sm" onclick="printMonthlyReport()"><i class="fas fa-print me-2"></i>Imprimir Reporte Mensual</button>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <select class="form-select" id="reportMonth" onchange="generateMonthlyReport()">
+                            <option value="">Selecciona Mes...</option>
+                            <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+                            <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+                            <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+                            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-dark"><tr><th>Fecha</th><th>Curso</th><th>Alumno</th><th>Motivo</th></tr></thead>
+                        <tbody id="reportTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-admin">
+            <div class="glass-card p-5 text-center">
+                <i class="fas fa-database fa-4x text-muted mb-4"></i>
+                <h3 class="fw-bold">Administración Global</h3>
+                <div class="alert alert-info d-inline-block text-start mb-4">
+                    <ul class="mb-0 text-start">
+                        <li>Total Alumnos: <strong id="totalStudentsCount">--</strong></li>
+                        <li>Alumnos sin Entrevista: <strong id="pendingStudentsCount" class="text-danger">--</strong></li>
+                    </ul>
+                </div>
+                
+                <div class="d-grid gap-3 col-md-6 mx-auto">
+                    <button class="btn btn-warning" onclick="loadData()"> <i class="fas fa-sync me-2"></i>Recargar Datos</button>
+                    <button class="btn btn-success" onclick="forceLoadNomina()"> <i class="fas fa-upload me-2"></i>FORZAR CARGA NÓMINA (AGREGAR)</button>
+                    <button class="btn btn-danger" onclick="factoryReset()"> <i class="fas fa-trash me-2"></i>RESTAURAR DE FÁBRICA (LIMPIAR TODO)</button>
+                </div>
+                <p class="small text-muted mt-3">"Restaurar" borra la lista actual y carga la nómina oficial. "Forzar" agrega los que falten.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="footer-credit no-print">Desarrollado por ProfeAle</div>
+
+<div id="customModalOverlay">
+    <div class="custom-modal-content">
+        <div class="modal-header-custom">
+            <h5 class="m-0 fw-bold" id="modalTitle"><i class="fas fa-edit me-2"></i>Registro de Entrevista</h5>
+            <button class="btn btn-sm btn-outline-light" onclick="hideCustomModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-4">
+            <div class="alert alert-light border py-2 mb-3">
+                <i class="fas fa-user-graduate me-2"></i>Alumno: <strong id="modalStudentName"></strong> <span class="float-end badge bg-dark">Folio: <strong id="modalFolio"></strong></span>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-md-6"><label class="small fw-bold">Apoderado</label><input type="text" class="form-control" id="formParent"></div>
+                <div class="col-md-3"><label class="small fw-bold">Fecha</label><input type="date" class="form-control" id="formDate"></div>
+                <div class="col-md-3"><label class="small fw-bold">Entrevistador</label><input type="text" class="form-control" id="formInterviewer"></div>
+                <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="updateStudentData" checked><label class="form-check-label small text-muted">Actualizar Apoderado en Ficha Maestra</label></div></div>
+            </div>
+            <div class="mb-3">
+                <label class="small fw-bold text-success">1. Motivo</label>
+                <select class="form-select form-select-sm w-50 d-inline-block ms-2" onchange="addText('formReason', this)"><option value="">+ Frase rápida...</option><option>Bajo rendimiento académico</option><option>Problemas de conducta</option><option>Inasistencias reiteradas</option><option>Felicitaciones</option></select>
+                <textarea class="form-control mt-1" id="formReason" rows="2"></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="small fw-bold text-success">2. Antecedentes</label>
+                <select class="form-select form-select-sm w-50 d-inline-block ms-2" onchange="addText('formFamilyBg', this)"><option value="">+ Frase rápida...</option><option>Apoderado comprometido</option><option>Situación familiar compleja</option><option>Vive con abuelos</option></select>
+                <textarea class="form-control mt-1" id="formFamilyBg" rows="2"></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="small fw-bold text-success">3. Sugerencias</label>
+                <select class="form-select form-select-sm w-50 d-inline-block ms-2" onchange="addText('formSuggestions', this)"><option value="">+ Frase rápida...</option><option>Reforzar estudio en casa</option><option>Supervisar uso de celular</option><option>Asistir a especialista</option></select>
+                <textarea class="form-control mt-1" id="formSuggestions" rows="2"></textarea>
+            </div>
+            <div class="mb-0">
+                <label class="small fw-bold text-success">4. Acuerdos</label>
+                <select class="form-select form-select-sm w-50 d-inline-block ms-2" onchange="addText('formAgreements', this)"><option value="">+ Frase rápida...</option><option>Revisar agenda diariamente</option><option>Mejorar puntualidad</option><option>Justificar inasistencias</option></select>
+                <textarea class="form-control mt-1" id="formAgreements" rows="2"></textarea>
+            </div>
+        </div>
+        <div class="p-3 text-end border-top bg-light">
+            <button class="btn btn-secondary rounded-pill me-2" onclick="hideCustomModal()">Cancelar</button>
+            <button class="btn btn-success rounded-pill px-4" onclick="saveInterview()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<div id="print-area-single" class="print-visible">
+    <div class="print-header">
+        <img src="logo.jpg" class="print-logo" alt="Logo">
+        <div class="print-title-box"><h1 class="doc-title">ENTREVISTA CON APODERADO</h1><p style="margin:0; font-size:10pt;">Registro Oficial de Entrevistas</p></div>
+    </div>
+    <div class="doc-row"><span class="doc-label">Nombre del alumno:</span><div class="doc-data" id="pSingleStudent"></div></div>
+    <div class="doc-row"><span class="doc-label">Nombre del apoderado:</span><div class="doc-data" id="pSingleParent"></div></div>
+    <div style="display: flex; gap: 20px;">
+        <div class="doc-row" style="width: 50%"><span class="doc-label">Curso:</span><div class="doc-data" id="pSingleCourse"></div></div>
+        <div class="doc-row" style="width: 50%"><span class="doc-label">Fecha:</span><div class="doc-data" id="pSingleDate"></div></div>
+    </div>
+    <div class="doc-section"><div class="doc-section-title">Motivo de la entrevista</div><div class="doc-multiline" id="pSingleReason"></div></div>
+    <div class="doc-section"><div class="doc-section-title">Antecedentes familiares</div><span class="doc-helper-text">(Conducta, hogar, etc.)</span><div class="doc-multiline" id="pSingleFamilyBg"></div></div>
+    <div class="doc-section"><div class="doc-section-title">Sugerencias</div><div class="doc-multiline" id="pSingleSuggestions"></div></div>
+    <div class="doc-section"><div class="doc-section-title">Acuerdos</div><div class="doc-multiline" id="pSingleAgreements"></div></div>
+    <div class="signature-box"><div class="signature-line">Firma del Profesor<br><span id="pSingleInterviewerName" style="font-weight: normal; font-size: 0.8em"></span></div><div class="signature-line">Firma del Apoderado</div></div>
+    <div class="print-footer">Desarrollado por ProfeAle</div>
+</div>
+
+<div id="print-area-consolidated" class="print-visible">
+    <div class="text-center mb-4 border-bottom pb-2"><h3 class="fw-bold">HOJA DE VIDA</h3></div>
+    <div class="alert alert-secondary mb-4"><h4 id="pConsolName" class="text-center fw-bold"></h4><div class="text-center">Curso: <span id="pConsolCourse"></span></div></div>
+    <div id="pConsolList"></div>
+    <div class="print-footer">Desarrollado por ProfeAle</div>
+</div>
+
+<div id="print-area-monthly" class="print-visible print-mode-monthly">
+    <div class="print-header">
+        <img src="logo.jpg" class="print-logo" alt="Logo">
+        <div class="print-title-box">
+            <h1 class="doc-title">REPORTE MENSUAL DE ENTREVISTAS</h1>
+            <p style="margin:0; font-size:10pt;" id="pMonthlyMonth">Mes: --</p>
+        </div>
+    </div>
+    <div id="pMonthlyContent"></div>
+    <div class="print-footer">Desarrollado por ProfeAle</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBnSMVCH0yyYUWk5z54kTIPTrWkyoeWs-I",
+      authDomain: "suspenciones-40d0c.firebaseapp.com",
+      projectId: "suspenciones-40d0c",
+      storageBucket: "suspenciones-40d0c.firebasestorage.app",
+      messagingSenderId: "853418739042",
+      appId: "1:853418739042:web:d051befb99cd2acdd4583b",
+      measurementId: "G-L00J7XN6Y1"
+    };
+
+    const NOMINA_OFICIAL = [{"curso": "2A", "nombre": "ALBURQUENQUE DEL GRECO, EMILYA ANTONIA"}, {"curso": "2A", "nombre": "ANABALÓN BELTRÁN, BENJAMÍN NICOLÁS"}, {"curso": "2A", "nombre": "CONTRERAS SALGADO, HADEEY ALEJANDRA"}, {"curso": "2A", "nombre": "FERRADA ALBORNOZ, AGUSTÍN ALEXIS"}, {"curso": "2A", "nombre": "IBÁÑEZ GONZÁLEZ, FERNANDA MAGDALENA"}, {"curso": "2A", "nombre": "LAGOS LASTRA, ALEXANDRA DANAE"}, {"curso": "2A", "nombre": "LÓPEZ LÓPEZ, LUCIANO ANTONIO"}, {"curso": "2A", "nombre": "MALDONADO FLORES, ANTONELLA BELÉN"}, {"curso": "2A", "nombre": "MARIN MARÍN, IGNACIO ANTONIO"}, {"curso": "2A", "nombre": "MONTECINO DÍAZ, VALESKA BELÉN"}, {"curso": "2A", "nombre": "MUÑOZ CONTRERAS, LUIS GABRIEL"}, {"curso": "2A", "nombre": "MUÑOZ LUNA, ROGER JOEL"}, {"curso": "2A", "nombre": "NAVARRO VILLANUEVA, KARLA PAZ"}, {"curso": "2A", "nombre": "ORELLANA ARRIAGADA, SEBASTIÁN ANDRÉS"}, {"curso": "2A", "nombre": "QUEZADA NARANJO, FELIPE ALONSO"}, {"curso": "2A", "nombre": "QUINTEROS VERGARA, FERNANDA FLORENCIA"}, {"curso": "2A", "nombre": "RAMÍREZ VILLALOBOS, DUVAN EMILIO"}, {"curso": "2A", "nombre": "SANTANDER LÓPEZ, MARÍA JOSÉ"}, {"curso": "2A", "nombre": "TAPIA CASTILLA, JEANFRANCO PATRICK"}, {"curso": "2A", "nombre": "URBINA CÁCERES, FRANCHESCA POULETTE"}, {"curso": "2A", "nombre": "VÁSQUEZ ZALDUENDO, AMANDA ISABEL"}, {"curso": "2A", "nombre": "ZABALAGA COFRÉ, DAMIÁN ANDRÉS"}, {"curso": "2A", "nombre": "BAEZ DONOSO, LUKAS ALFONSO"}, {"curso": "2A", "nombre": "MESA DÍAZ, GONZALO IGNACIO"}, {"curso": "2A", "nombre": "ARAVENA ZÚÑIGA, NOEMÍ DE JESÚS DE LAS ESTRELLAS"}, {"curso": "2A", "nombre": "ASTUDILLO CAMPOS, CRISTÓBAL ANTONIO"}, {"curso": "2A", "nombre": "ASTUDILLO VÁSQUEZ, BRUNO FERNANDO LEÓN"}, {"curso": "2A", "nombre": "CUMINAO VIDAL, CATALINA ANDREA"}, {"curso": "2A", "nombre": "DÍAZ MALUENDA, MIGUEL ALBERTO"}, {"curso": "2A", "nombre": "KILTAN GONZÁLEZ, DIDIER EZEQUIEL"}, {"curso": "2A", "nombre": "LÓPEZ ACUÑA, MARCO EMILIO"}, {"curso": "2A", "nombre": "LÓPEZ NOVOA, EYDAN DAMIÁN"}, {"curso": "2A", "nombre": "MÉNDEZ SUAZO, FABIÁN FELIPE"}, {"curso": "2A", "nombre": "MOYA REYES, MATEO ANTONIO BENJAMÍN"}, {"curso": "2A", "nombre": "OSES CAMPOS, VALENTINA ABIGAIL"}, {"curso": "2A", "nombre": "PALMA ORELLANA, ANTONELLA FRANCISCA"}, {"curso": "2A", "nombre": "PEREIRA ORELLANA, MONSERRAT ALAMIRA"}, {"curso": "2A", "nombre": "PÉREZ ORMAZÁBAL, ZADKA ALEJANDRA"}, {"curso": "2A", "nombre": "ROJAS GONZÁLEZ, FLORENCIA TRINIDAD"}, {"curso": "2A", "nombre": "ROJAS LEIVA, EDUARDO JAVIER"}, {"curso": "2A", "nombre": "VÁSQUEZ AGUILERA, SCARLET NICOLE"}, {"curso": "2A", "nombre": "YÁÑEZ GONZÁLEZ, BRAYAN DAMIÁN"}, {"curso": "2A", "nombre": "VARGAS MORAGA, MARTINA SAYEN"}, {"curso": "2A", "nombre": "SALAZAR SALAS, PEDRO JOSÉ"}, {"curso": "2A", "nombre": "VERA BRAVO, FLORENCIA ANTONIA"}, {"curso": "2A", "nombre": "PÉREZ QUEVEDO, CONSTANZA TRINIDAD"}, {"curso": "2A", "nombre": "RIQUELME SANTOS, BENJAMÍN ALONSO"}, {"curso": "3A", "nombre": "AHUMADA ROJAS, TRINIDAD BELÉN"}, {"curso": "3A", "nombre": "ESPINOSA TORRES, FERNANDA ELENA"}, {"curso": "3A", "nombre": "ESPINOZA PEÑALILLO, BRAYAN JESÚS"}, {"curso": "3A", "nombre": "GONZÁLEZ SALAZAR, EMILIA CATALINA"}, {"curso": "3A", "nombre": "MEDEL OJEDA, LEÓN IGNACIO"}, {"curso": "3A", "nombre": "MORALES REIMÁN, ALFONSO TOMÁS"}, {"curso": "3A", "nombre": "PEREIRA HORMAZÁBAL, MAXIMILIANO EDUARDO"}, {"curso": "3A", "nombre": "PINTO TOBAR, JORDÁN AMARO"}, {"curso": "3A", "nombre": "RECABAL YÁÑEZ, KEVIN ANDRÉS"}, {"curso": "3A", "nombre": "RIQUELME CASTILLO, MATÍAS EDUARDO ANTONIO"}, {"curso": "3A", "nombre": "RIVERA ABARZA, CONSTANZA VICTORIA"}, {"curso": "3A", "nombre": "SANTIS CASSEUS, TEIVA SCARLETT"}, {"curso": "3A", "nombre": "SOBARZO YÉVENES, KATHERINNE ALEXIA BELÉN"}, {"curso": "3A", "nombre": "TOLEDO ALBORNOZ, ANTONELLA INES"}, {"curso": "3A", "nombre": "VENEGAS ARRIAGADA, ANTONIA EDITH"}, {"curso": "3A", "nombre": "VIELMA ZABALAGA, JOAN MANUEL"}, {"curso": "3A", "nombre": "MEZA COLIMÁN, ANGEL BLAS"}, {"curso": "3A", "nombre": "SAAVEDRA BRAVO, FLORENCIA ALEJANDRA"}, {"curso": "3C", "nombre": "ARAYA DOMÍNGUEZ, ALEX FABIÁN"}, {"curso": "3C", "nombre": "BRAVO MENARES, ALEX JOHAN"}, {"curso": "3C", "nombre": "CARRASCO LEIVA, BENJAMÍN IGNACIO"}, {"curso": "3C", "nombre": "CARVAJAL URRUTIA, CONSTANZA PRISILA (DANIEL)"}, {"curso": "3C", "nombre": "ENCINA PIZARRO, DIEGO BENJAMÍN ALEXANDER"}, {"curso": "3C", "nombre": "FAÚNDEZ NORAMBUENA, ALEJANDRO ANTONIO"}, {"curso": "3C", "nombre": "JARAMILLO VILLAR, EMILIO SCOTT"}, {"curso": "3C", "nombre": "LÓPEZ VILLAR, MARTÍN ALONSO"}, {"curso": "3C", "nombre": "MIRANDA MUÑOZ, ALEXANDRA JAVIERA"}, {"curso": "3C", "nombre": "MUÑOZ TRONCOSO, HÉCTOR ANTONIO"}, {"curso": "3C", "nombre": "OLIVARES VALENZUELA, ALONSO IGNACIO"}, {"curso": "3C", "nombre": "OLIVARES VALENZUELA, ANTONELLA DANAE IGNACIA"}, {"curso": "3C", "nombre": "ORELLANA GARRIDO, MATÍAS LEANDRO"}, {"curso": "3C", "nombre": "PUNOY MEDEL, MILLARAY ANGÉLICA"}, {"curso": "3C", "nombre": "QUIÑENAO MUÑOZ, CRISTÓBAL PATRICIO"}, {"curso": "3C", "nombre": "RIQUELME COLOMA, DALIA CONSTANZA"}, {"curso": "3C", "nombre": "SALGADO ROJAS, VICENTE MOISÉS"}, {"curso": "3C", "nombre": "SANDOVAL CERPA, VICENTE ESTEBAN"}, {"curso": "3C", "nombre": "SOTO NARANJO, CHRISTOPHER"}, {"curso": "3C", "nombre": "VEKARIC VERDEJO, MARTÍN"}, {"curso": "4A", "nombre": "ALCÁNTAR GARCÍA, MARTINA ALEJANDRA"}, {"curso": "4A", "nombre": "BAHAMONDE MUÑOZ, ARIEL LEON"}, {"curso": "4A", "nombre": "CAMPOS MUÑOZ, CRISTOPHER JESÚS"}, {"curso": "4A", "nombre": "CANCINO ORÓSTICA, VICENTE GASPAR"}, {"curso": "4A", "nombre": "CARRASCO GONZÁLEZ, CAMILA ANDREA"}, {"curso": "4A", "nombre": "COFRÉ CASTILLO, ANTONIO ANDRÉS"}, {"curso": "4A", "nombre": "CONTRERAS VENEGAS, BELÉN ALEJANDRA"}, {"curso": "4A", "nombre": "GALDAMES VERGARA, FELIPE ESTEBAN"}, {"curso": "4A", "nombre": "GARCÍA GONZÁLEZ, SANTIAGO HUMBERTO"}, {"curso": "4A", "nombre": "GONZÁLEZ AMIGO, FRANCISCA IGNACIA"}, {"curso": "4A", "nombre": "GONZÁLEZ SALAZAR, JOAQUÍN ALONSO"}, {"curso": "4A", "nombre": "GUTIÉRREZ GUTIÉRREZ, ANGEL MARTÍN"}, {"curso": "4A", "nombre": "MARTÍNEZ LIZANA, AARON ALEJANDRO"}, {"curso": "4A", "nombre": "MEZA CARRASCO, BENJAMÍN INTI"}, {"curso": "4A", "nombre": "MIÑO GONZALEZ, CATALINA ANDREA"}, {"curso": "4A", "nombre": "MORAGA PACHECO, RENATO IGNACIO"}, {"curso": "4A", "nombre": "PÉREZ CORÓN, MANUEL IGNACIO"}, {"curso": "4A", "nombre": "SAMANIEGO CORTEZ, JAKSON FERGIE"}, {"curso": "4A", "nombre": "SEPÚLVEDA SALAZAR, SOFÍA ANTONIA"}, {"curso": "4A", "nombre": "TAPIA ACUÑA, GABRIEL ANTONIO"}, {"curso": "4A", "nombre": "VEGA VIVANCO, CRISTÓBAL ANTONIO"}, {"curso": "4A", "nombre": "VERA NAVARRETE, DANIELA ELIZABETH"}, {"curso": "4A", "nombre": "VILLALOBOS ARAVENA, KARINA ANGELINA"}, {"curso": "4A", "nombre": "VILLALOBOS VILLALOBOS, SAMIR LUCIAN JESUS"}, {"curso": "4A", "nombre": "HERNÁNDEZ SEPÚLVEDA, VICENTE ALEJANDRO"}, {"curso": "4A", "nombre": "TORREALBA MOYA, FLORVELIS DE LOS ANGELES"}, {"curso": "4A", "nombre": "CARO URRUTIA, CONSUELO ANTONIA"}, {"curso": "4A", "nombre": "LOBOS CÁCERES, ANTONIA PAZ"}, {"curso": "4C", "nombre": "ARELLANO ACUÑA, MARTÍN ANTONIO"}, {"curso": "4C", "nombre": "AROS ÁVILA, DAYANA IGNACIA"}, {"curso": "4C", "nombre": "CABRERA COLOMBINO, MARÍA GRACIA"}, {"curso": "4C", "nombre": "FUENTES CARRASCO, YARIXA ALEJANDRA"}, {"curso": "4C", "nombre": "GÓMEZ CANCINO, DANIELA ALEJANDRA"}, {"curso": "4C", "nombre": "GUTIÉRREZ CARRIÓN, MILLARAY CAROLINA"}, {"curso": "4C", "nombre": "HONORATO TAPIA, GLORIA JAVIERA"}, {"curso": "4C", "nombre": "LARA RIVERA, BENJAMÍN ESTEBAN"}, {"curso": "4C", "nombre": "PALACIOS SOTO, JOSÉ TOMÁS"}, {"curso": "4C", "nombre": "PEZO SANTANDER, JOSÉ CRISTÓBAL"}, {"curso": "4C", "nombre": "ROCHA ROJAS, JOSÉ PABLO WILLIAMS"}, {"curso": "4C", "nombre": "ROJAS YÉVENES, FABIANA ISIDORA"}, {"curso": "4C", "nombre": "SÁNCHEZ PAREJA, ANDY ANTONIO"}, {"curso": "4C", "nombre": "SANTANDER LÓPEZ, SIMÓN ESTEBAN"}, {"curso": "4C", "nombre": "TRONCOSO LIZAMA, SIOMARA IGNACIA"}, {"curso": "4C", "nombre": "WARNKEN ROJAS, LUCIANA BERNABELA"}, {"curso": "4C", "nombre": "DE LA HOZ VALENZUELA, FRANCO SEBASTIÁN"}, {"curso": "4C", "nombre": "COLLAO MEDINA, ANAÍS VALENTINA"}];
+
+    let db = null;
+    let ALL_STUDENTS = [];
+    let ALL_INTERVIEWS_GLOBAL = [];
+    let CURRENT_STUDENT = null;
+    let STUDENT_INTERVIEWS = [];
+    let CURRENT_ROLE = null;
+    let CURRENT_ASSIGNED_COURSE = null;
+    let EDITING_INTERVIEW_ID = null; // Nueva variable para edición
+    let charts = {}; 
+
+    // --- FUNCIONES SEGURAS ---
+    function checkRole() { console.log("Rol seleccionado"); }
+    function safeSetText(id, text) { const el = document.getElementById(id); if (el) el.innerText = text; }
+
+    window.addEventListener('load', async () => {
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+        } catch (error) { Swal.fire('Error', error.message, 'error'); }
+    });
+
+    function attemptLogin() {
+        const role = document.getElementById('loginRole').value;
+        const pass = document.getElementById('loginPass').value;
+        const errorMsg = document.getElementById('loginError');
+
+        if (!role) { errorMsg.innerText = "Selecciona quién eres."; errorMsg.style.display = 'block'; return; }
+
+        let success = false;
+        if (role === 'admin' && pass === 'admin2026') {
+            success = true; CURRENT_ROLE = 'admin'; CURRENT_ASSIGNED_COURSE = 'ALL';
+        } else if (role !== 'admin' && pass === 'profe123') {
+            success = true; CURRENT_ROLE = 'teacher'; CURRENT_ASSIGNED_COURSE = role;
+        }
+
+        if (success) {
+            document.getElementById('login-overlay').style.opacity = '0';
+            setTimeout(() => { document.getElementById('login-overlay').style.display = 'none'; }, 500);
+            document.getElementById('mainApp').classList.add('unlocked');
+            safeSetText('userBadge', (role === 'admin') ? 'MODO COORDINADOR' : 'PROFESOR JEFE ' + role);
+            if(CURRENT_ROLE === 'admin') document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'inline-block');
+            loadData();
+        } else {
+            errorMsg.innerText = "Contraseña incorrecta."; errorMsg.style.display = 'block';
+        }
+    }
+
+    async function loadData() {
+        const loader = document.getElementById('loader-overlay');
+        if(loader) loader.style.display = 'flex';
+        ALL_STUDENTS = []; ALL_INTERVIEWS_GLOBAL = [];
+        try {
+            const snap = await db.collection("alumnos").get();
+            if (!snap.empty) { snap.forEach(doc => ALL_STUDENTS.push({ id: doc.id, ...doc.data() })); }
+
+            const snapInt = await db.collection("entrevistas").get();
+            snapInt.forEach(doc => ALL_INTERVIEWS_GLOBAL.push({ id: doc.id, ...doc.data() }));
+
+            ALL_STUDENTS.sort((a, b) => (a.curso === b.curso) ? a.nombre.localeCompare(b.nombre) : a.curso.localeCompare(b.curso));
+            
+            // CRUZAR DATOS (CONTAR ENTREVISTAS)
+            ALL_STUDENTS.forEach(student => {
+                const interviews = ALL_INTERVIEWS_GLOBAL.filter(i => i.studentName === student.nombre && i.course === student.curso);
+                student.interviewCount = interviews.length;
+                student.hasInterview = interviews.length > 0;
+            });
+
+            populateFilters();
+            if(CURRENT_ROLE === 'admin') { updateAdminList(); generateCharts(); }
+            
+            safeSetText('totalStudentsCount', ALL_STUDENTS.length);
+            safeSetText('pendingStudentsCount', ALL_STUDENTS.filter(s => !s.hasInterview).length);
+            if(loader) loader.style.display = 'none';
+        } catch(e) { console.error(e); if(loader) loader.style.display = 'none'; }
+    }
+
+    function populateFilters() {
+        const courseSelect = document.getElementById('searchCourse');
+        courseSelect.innerHTML = '<option value="">Seleccione Curso...</option>';
+        let courses = [...new Set(ALL_STUDENTS.map(s => s.curso))].sort();
+
+        if (CURRENT_ROLE === 'teacher') {
+            courses = courses.filter(c => c === CURRENT_ASSIGNED_COURSE);
+            if(courses.length === 0) {
+                const opt = document.createElement('option'); opt.value = CURRENT_ASSIGNED_COURSE; opt.innerText = CURRENT_ASSIGNED_COURSE;
+                courseSelect.appendChild(opt); courseSelect.value = CURRENT_ASSIGNED_COURSE; courseSelect.disabled = true; return;
+            }
+        }
+        courses.forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.innerText = c; courseSelect.appendChild(opt); });
+        if (CURRENT_ROLE === 'teacher') { courseSelect.value = CURRENT_ASSIGNED_COURSE; courseSelect.disabled = true; filterStudentList(); }
+    }
+
+    window.filterStudentList = function() {
+        const course = document.getElementById('searchCourse').value;
+        const studentSelect = document.getElementById('searchStudent');
+        studentSelect.innerHTML = '<option value="">Seleccione Alumno...</option>';
+        studentSelect.disabled = true;
+        if (course) {
+            ALL_STUDENTS.filter(s => s.curso === course).forEach(s => {
+                const opt = document.createElement('option'); opt.value = s.id; opt.innerText = s.nombre; studentSelect.appendChild(opt);
+            });
+            studentSelect.disabled = false;
+        }
+    };
+
+    window.loadStudentProfile = async function() {
+        const studentId = document.getElementById('searchStudent').value;
+        if (!studentId) return;
+        CURRENT_STUDENT = ALL_STUDENTS.find(s => s.id === studentId);
+        safeSetText('profileName', CURRENT_STUDENT.nombre);
+        safeSetText('profileCourse', CURRENT_STUDENT.curso);
+        safeSetText('profileParent', CURRENT_STUDENT.parentName || 'No registrado');
+        document.getElementById('student-view').style.display = 'block';
+        await loadHistory(studentId);
+    };
+
+    // --- GRÁFICOS Y REPORTES ---
+    function generateCharts() {
+        const months = {}; const courses = {};
+        ALL_INTERVIEWS_GLOBAL.forEach(iv => {
+            try {
+                const parts = iv.date.split('-');
+                if(parts.length === 3) {
+                    const date = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+                    const monthKey = date.toLocaleString('default', { month: 'long' });
+                    months[monthKey] = (months[monthKey] || 0) + 1;
+                }
+            } catch(e) {}
+            const courseKey = iv.course || 'S/C';
+            courses[courseKey] = (courses[courseKey] || 0) + 1;
+        });
+
+        if(charts.months) charts.months.destroy();
+        if(charts.courses) charts.courses.destroy();
+
+        const ctxMonths = document.getElementById('chartMonths');
+        const ctxCourses = document.getElementById('chartCourses');
+
+        if(ctxMonths) { charts.months = new Chart(ctxMonths, { type: 'line', data: { labels: Object.keys(months), datasets: [{ label: 'Entrevistas', data: Object.values(months), borderColor: '#2a9d8f', tension: 0.1, fill: true }] } }); }
+        if(ctxCourses) { charts.courses = new Chart(ctxCourses, { type: 'bar', data: { labels: Object.keys(courses), datasets: [{ label: 'Total', data: Object.values(courses), backgroundColor: '#264653' }] } }); }
+    }
+
+    window.generateMonthlyReport = function() {
+        const selectedMonth = document.getElementById('reportMonth').value;
+        const tbody = document.getElementById('reportTableBody');
+        tbody.innerHTML = '';
+        
+        const selObj = document.getElementById('reportMonth');
+        const monthText = selObj.options[selObj.selectedIndex].text;
+        safeSetText('pMonthlyMonth', 'Mes: ' + monthText);
+
+        if(!selectedMonth) return;
+        const filtered = ALL_INTERVIEWS_GLOBAL.filter(iv => { const m = iv.date.split('-')[1]; return m === selectedMonth; });
+        filtered.forEach(iv => { tbody.innerHTML += `<tr><td>${iv.date}</td><td>${iv.course}</td><td>${iv.studentName}</td><td><small>${(iv.reason||'').substring(0,30)}...</small></td></tr>`; });
+        if(filtered.length === 0) tbody.innerHTML = '<tr><td colspan="4" class="text-center">Sin datos</td></tr>';
+    }
+
+    window.printMonthlyReport = function() {
+        const tableContent = document.getElementById('reportTableBody').innerHTML;
+        if(!tableContent || tableContent.includes("Sin datos")) { Swal.fire('Error', 'Selecciona un mes con datos primero.', 'warning'); return; }
+        
+        document.getElementById('pMonthlyContent').innerHTML = `
+            <table class="print-table">
+                <thead><tr><th>Fecha</th><th>Curso</th><th>Alumno</th><th>Motivo</th></tr></thead>
+                <tbody>${tableContent}</tbody>
+            </table>
+        `;
+        document.body.classList.add('print-mode-monthly'); window.print(); document.body.classList.remove('print-mode-monthly');
+    };
+
+    window.updateAdminList = function() {
+        if(CURRENT_ROLE !== 'admin') return;
+        const list = document.getElementById('adminStudentList'); if(!list) return;
+        list.innerHTML = '';
+        ALL_STUDENTS.forEach(s => {
+            const rowClass = s.hasInterview ? '' : 'row-pending';
+            const statusBadge = s.hasInterview ? '<span class="badge bg-success">OK</span>' : '<span class="badge badge-pending">PENDIENTE</span>';
+            const countBadge = s.interviewCount > 0 ? `<span class="badge bg-primary rounded-pill badge-count">${s.interviewCount}</span>` : `<span class="badge bg-secondary rounded-pill badge-count">0</span>`;
+            
+            list.innerHTML += `<tr class="${rowClass}">
+                <td><span class="badge bg-light text-dark border">${s.curso}</span></td>
+                <td>${s.nombre}</td>
+                <td>${statusBadge}</td>
+                <td class="text-center">${countBadge}</td>
+                <td class="text-end"><button class="btn btn-sm btn-outline-danger" onclick="deleteStudentPermanently('${s.id}')"><i class="fas fa-times"></i></button></td>
+            </tr>`;
+        });
+    };
+
+    // --- NUEVO SISTEMA DE MODAL (INCLUYE EDICIÓN PARA ADMIN) ---
+    window.showCustomModal = function() {
+        if (!CURRENT_STUDENT) {
+            const studentId = document.getElementById('searchStudent').value;
+            if(studentId && ALL_STUDENTS.length > 0) CURRENT_STUDENT = ALL_STUDENTS.find(s => s.id === studentId);
+        }
+        if (!CURRENT_STUDENT) { Swal.fire('Ups', 'Debes seleccionar un alumno.', 'warning'); return; }
+        
+        // MODO CREAR (Limpiar todo)
+        EDITING_INTERVIEW_ID = null;
+        safeSetText('modalTitle', 'Nueva Entrevista');
+        safeSetText('modalStudentName', CURRENT_STUDENT.nombre);
+        safeSetText('modalFolio', new Date().getFullYear() + '-' + Math.floor(Math.random() * 10000));
+        
+        document.getElementById('formDate').valueAsDate = new Date();
+        document.getElementById('formParent').value = CURRENT_STUDENT.parentName || '';
+        document.getElementById('formInterviewer').value = ''; 
+        ['formReason', 'formFamilyBg', 'formSuggestions', 'formAgreements'].forEach(id => document.getElementById(id).value = '');
+        
+        document.getElementById('customModalOverlay').style.display = 'flex';
+    };
+
+    // FUNCIÓN PARA EDITAR (SOLO ADMIN)
+    window.editInterview = function(id) {
+        if (CURRENT_ROLE !== 'admin') return; // Seguridad
+        const interview = STUDENT_INTERVIEWS.find(i => i.id === id);
+        if (!interview) return;
+
+        EDITING_INTERVIEW_ID = id; // Activar modo edición
+        safeSetText('modalTitle', '✏️ Editando Entrevista');
+        safeSetText('modalStudentName', interview.studentName);
+        safeSetText('modalFolio', interview.folio); // Mantener folio original
+
+        document.getElementById('formDate').value = interview.date;
+        document.getElementById('formParent').value = interview.parentName;
+        document.getElementById('formInterviewer').value = interview.interviewer;
+        document.getElementById('formReason').value = interview.reason;
+        document.getElementById('formFamilyBg').value = interview.familyBg;
+        document.getElementById('formSuggestions').value = interview.suggestions;
+        document.getElementById('formAgreements').value = interview.agreements;
+
+        document.getElementById('customModalOverlay').style.display = 'flex';
+    };
+
+    window.hideCustomModal = function() { document.getElementById('customModalOverlay').style.display = 'none'; };
+
+    window.saveInterview = async function() {
+        const data = {
+            date: document.getElementById('formDate').value,
+            parentName: document.getElementById('formParent').value,
+            interviewer: document.getElementById('formInterviewer').value,
+            reason: document.getElementById('formReason').value,
+            familyBg: document.getElementById('formFamilyBg').value, 
+            suggestions: document.getElementById('formSuggestions').value, 
+            agreements: document.getElementById('formAgreements').value,
+            // Datos fijos
+            studentId: CURRENT_STUDENT.id,
+            studentName: CURRENT_STUDENT.nombre,
+            course: CURRENT_STUDENT.curso
+        };
+
+        try {
+            if (EDITING_INTERVIEW_ID) {
+                // MODO EDICIÓN (UPDATE)
+                await db.collection("entrevistas").doc(EDITING_INTERVIEW_ID).update(data);
+                Swal.fire('Actualizado', 'La entrevista ha sido modificada.', 'success');
+            } else {
+                // MODO CREAR (ADD)
+                data.folio = document.getElementById('modalFolio').innerText;
+                data.createdAt = new Date().toISOString();
+                await db.collection("entrevistas").add(data);
+                Swal.fire('Registrado', 'Entrevista guardada.', 'success');
+            }
+
+            // Actualizar datos locales
+            if (document.getElementById('updateStudentData').checked) {
+                await db.collection("alumnos").doc(CURRENT_STUDENT.id).update({ parentName: data.parentName });
+                CURRENT_STUDENT.parentName = data.parentName;
+                safeSetText('profileParent', data.parentName);
+            }
+            
+            hideCustomModal();
+            await loadHistory(CURRENT_STUDENT.id);
+            // Recargar todo si es necesario (para actualizar gráficos)
+            if(CURRENT_ROLE === 'admin') loadData(); 
+
+        } catch(e) { Swal.fire('Error', e.message, 'error'); }
+    };
+
+    window.addText = function(targetId, select) { if(select.value) { const el = document.getElementById(targetId); el.value += (el.value ? "\n" : "") + "- " + select.value; select.value = ""; } }
+    
+    async function loadHistory(studentId) {
+        STUDENT_INTERVIEWS = [];
+        const student = ALL_STUDENTS.find(s => s.id === studentId);
+        const nameToSearch = student ? student.nombre : "";
+        try {
+            const snap = await db.collection("entrevistas").get();
+            snap.forEach(doc => {
+                const data = doc.data();
+                if(data.studentId === studentId || data.studentName === nameToSearch) {
+                    STUDENT_INTERVIEWS.push({ id: doc.id, ...data });
+                }
+            });
+            STUDENT_INTERVIEWS.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            const tbody = document.getElementById('historyTableBody'); tbody.innerHTML = '';
+            if(STUDENT_INTERVIEWS.length === 0) { document.getElementById('emptyMsg').style.display = 'block'; } 
+            else {
+                document.getElementById('emptyMsg').style.display = 'none';
+                STUDENT_INTERVIEWS.forEach(i => { 
+                    // BOTONES: Si es admin, muestra Editar y Borrar. Si es profe, nada.
+                    let actions = `<button class="btn btn-sm btn-outline-primary me-1" onclick='printSingle("${i.id}")'><i class="fas fa-print"></i></button>`;
+                    if (CURRENT_ROLE === 'admin') {
+                        actions += `<button class="btn btn-sm btn-warning me-1" onclick='editInterview("${i.id}")'><i class="fas fa-pencil-alt"></i></button>`;
+                        actions += `<button class="btn btn-sm btn-danger" onclick='deleteRecord("${i.id}")'><i class="fas fa-trash"></i></button>`;
+                    }
+                    tbody.innerHTML += `<tr><td>${i.date}</td><td><span class="badge bg-secondary">${i.folio}</span></td><td><small>${(i.reason||'').substring(0,40)}...</small></td><td class="text-end">${actions}</td></tr>`; 
+                });
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    // UTILS ADMIN
+    window.factoryReset = async function(silent = false) {
+        if(CURRENT_ROLE !== 'admin' && !silent) return;
+        if(!silent && !confirm("ATENCIÓN: Esto borrará la lista de alumnos y cargará la nómina oficial. Las entrevistas NO se borrarán. ¿Continuar?")) return;
+        document.getElementById('loader-overlay').style.display = 'flex';
+        try {
+            const snap = await db.collection("alumnos").get();
+            let batch = db.batch(); let count = 0;
+            for (const doc of snap.docs) { batch.delete(doc.ref); count++; if (count >= 100) { await batch.commit(); batch = db.batch(); count = 0; } }
+            if (count > 0) await batch.commit();
+
+            let batchInsert = db.batch(); let insertCount = 0;
+            for (const student of NOMINA_OFICIAL) { 
+                const ref = db.collection("alumnos").doc(); batchInsert.set(ref, student); insertCount++; 
+                if (insertCount >= 100) { await batchInsert.commit(); batchInsert = db.batch(); insertCount = 0; } 
+            }
+            if (insertCount > 0) await batchInsert.commit();
+            await loadData();
+            if(!silent) Swal.fire('Éxito', 'Base de datos reparada.', 'success');
+        } catch(e) { console.error(e); document.getElementById('loader-overlay').style.display = 'none'; }
+    };
+
+    window.forceLoadNomina = async function() {
+        if(!confirm("¿Agregar alumnos faltantes?")) return;
+        document.getElementById('loader-overlay').style.display = 'flex';
+        try {
+            let count = 0; let batch = db.batch(); let ops = 0;
+            const existingNames = ALL_STUDENTS.map(s => s.nombre);
+            for (const student of NOMINA_OFICIAL) {
+                if(!existingNames.includes(student.nombre)) {
+                    const ref = db.collection("alumnos").doc(); batch.set(ref, student); count++; ops++;
+                    if(ops >= 100) { await batch.commit(); batch = db.batch(); ops = 0; }
+                }
+            }
+            if(ops > 0) await batch.commit();
+            await loadData();
+            Swal.fire('Listo', `Agregados ${count} alumnos.`, 'success');
+        } catch(e) { console.error(e); document.getElementById('loader-overlay').style.display = 'none'; }
+    };
+
+    window.editCurrentStudent = async function() { if(CURRENT_ROLE === 'admin') { 
+        if(!CURRENT_STUDENT) return;
+        const { value: formValues } = await Swal.fire({ title: 'Editar Alumno', html: `<input id="swal-name" class="swal2-input" value="${CURRENT_STUDENT.nombre}"><input id="swal-course" class="swal2-input" value="${CURRENT_STUDENT.curso}">`, focusConfirm: false, preConfirm: () => [document.getElementById('swal-name').value.toUpperCase(), document.getElementById('swal-course').value.toUpperCase()] });
+        if (formValues) { await db.collection("alumnos").doc(CURRENT_STUDENT.id).update({ nombre: formValues[0], curso: formValues[1] }); await loadData(); }
+    }};
+    window.addNewStudent = async function() { /* ... */ };
+    window.deleteStudentPermanently = async function(id) { if(CURRENT_ROLE === 'admin' && confirm("¿Borrar?")) { await db.collection("alumnos").doc(id).delete(); await loadData(); }};
+    window.filterAdminList = function() {
+         if(CURRENT_ROLE !== 'admin') return;
+        const filter = document.getElementById('filterListInput').value.toUpperCase();
+        const rows = document.getElementById('adminStudentList').getElementsByTagName('tr');
+        for(let row of rows) {
+            const txt = row.textContent || row.innerText;
+            row.style.display = txt.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+        }
+    };
+
+    window.printSingle = function(id) {
+        const item = STUDENT_INTERVIEWS.find(i => i.id === id); if (!item) return;
+        safeSetText('pSingleStudent', item.studentName);
+        safeSetText('pSingleParent', item.parentName);
+        safeSetText('pSingleCourse', item.course);
+        const d = item.date.split('-'); safeSetText('pSingleDate', d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : item.date);
+        safeSetText('pSingleReason', item.reason);
+        safeSetText('pSingleFamilyBg', item.familyBg);
+        safeSetText('pSingleSuggestions', item.suggestions);
+        safeSetText('pSingleAgreements', item.agreements);
+        safeSetText('pSingleInterviewerName', item.interviewer);
+        document.body.classList.add('print-mode-single'); window.print(); document.body.classList.remove('print-mode-single');
+    };
+    
+    window.printConsolidated = function() {
+        if(!STUDENT_INTERVIEWS.length) { Swal.fire('Info', 'No hay datos.', 'info'); return; }
+        safeSetText('pConsolName', CURRENT_STUDENT.nombre);
+        safeSetText('pConsolCourse', CURRENT_STUDENT.curso);
+        const container = document.getElementById('pConsolList'); container.innerHTML = '';
+        STUDENT_INTERVIEWS.forEach(item => { container.innerHTML += `<div class="border-bottom mb-3 pb-3"><div class="fw-bold">${item.date} - ${item.interviewer}</div><div class="mt-1">${item.reason}</div></div>`; });
+        document.body.classList.add('print-mode-consolidated'); window.print(); document.body.classList.remove('print-mode-consolidated');
+    };
+    
+    async function deleteRecord(id) { 
+        if(CURRENT_ROLE !== 'admin') { Swal.fire('Acceso Denegado', 'Solo admin.', 'error'); return; }
+        if (confirm("¿Borrar?")) { await db.collection("entrevistas").doc(id).delete(); loadHistory(CURRENT_STUDENT.id); Swal.fire('Eliminado', '.', 'success');} 
+    }
+</script>
+</body>
+</html>

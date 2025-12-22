@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor Decreto 67 - Informe Académico</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        
+        /* UI Pantalla */
+        .tab-btn { transition: all 0.2s; border-bottom: 3px solid transparent; opacity: 0.7; }
+        .tab-btn:hover { opacity: 1; background-color: #e2e8f0; }
+        .tab-btn.active { border-color: #166534; color: #166534; font-weight: bold; background-color: #dcfce7; opacity: 1; }
+
+        input.editable, textarea.editable, select.editable {
+            border: 1px solid #94a3b8; background-color: #ffffff;
+            border-radius: 0.375rem; padding: 0.5rem; width: 100%; font-size: 0.95rem;
+        }
+        input.editable:focus { outline: none; border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2); }
+
+        /* --- MEJORAS DE IMPRESIÓN (SOLUCIÓN BORDES Y CORTE) --- */
+        @media print {
+            body { background: white; }
+            body * { visibility: hidden; } 
+            
+            #print-zone {
+                visibility: visible !important;
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                background: white;
+            }
+            #print-zone * {
+                visibility: visible !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .no-print { display: none !important; }
+            
+            /* MARGEN DE SEGURIDAD PARA QUE NO CORTE LA IMPRESORA */
+            @page { size: letter; margin: 2.5cm; } 
+            
+            /* TIPOGRAFÍA AUMENTADA PARA DISTRIBUCIÓN EN 2 HOJAS */
+            .doc-container { 
+                font-family: 'Times New Roman', serif; 
+                color: black; 
+                line-height: 1.5; /* Más aire entre líneas */
+                font-size: 12pt;  /* Letra más grande (antes 11pt) */
+            }
+
+            .doc-header { display: flex; justify-content: space-between; border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 30px; }
+            .doc-title { text-align: center; font-weight: bold; font-size: 15pt; text-decoration: underline; margin-bottom: 25px; text-transform: uppercase; }
+            
+            .doc-section { 
+                font-weight: bold; 
+                border-bottom: 1px solid #000; 
+                margin-top: 25px; 
+                margin-bottom: 15px; 
+                font-size: 12pt; 
+                text-transform: uppercase;
+                page-break-after: avoid; /* No romper justo después del título */
+            }
+
+            .doc-field { margin-bottom: 8px; }
+            
+            /* CAJAS DE TEXTO PROTEGIDAS CONTRA CORTES */
+            .doc-box { 
+                border: 1px solid #000; /* Borde negro sólido para mejor contraste */
+                padding: 12px; 
+                min-height: 60px; 
+                white-space: pre-wrap; 
+                text-align: justify; 
+                margin-bottom: 15px;
+                page-break-inside: avoid; /* CRÍTICO: Evita que el cuadro se parta en dos páginas */
+                background-color: #fff;
+            }
+
+            /* FIRMAS EN LA SEGUNDA HOJA */
+            .doc-signatures { 
+                display: flex; 
+                justify-content: space-between; 
+                margin-top: 100px; /* Empujar hacia abajo */
+                page-break-inside: avoid; /* No romper las firmas */
+            }
+            .doc-sign-line { width: 40%; border-top: 1px solid black; text-align: center; font-weight: bold; padding-top: 10px; font-size: 11pt; }
+            
+            /* GRÁFICO VISUAL */
+            .visual-bar-container { display: flex; align-items: center; margin-bottom: 8px; font-size: 10pt; }
+            .visual-bar-label { width: 160px; font-weight: bold; }
+            .visual-bar-track { flex-grow: 1; background-color: #eee; height: 14px; border-radius: 0; overflow: hidden; border: 1px solid #000; max-width: 350px; }
+            .visual-bar-fill { height: 100%; }
+        }
+    </style>
+</head>
+<body class="pb-12">
+
+    <header class="bg-green-800 text-white shadow-lg no-print sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <img src="logo.jpg" alt="Logo" class="h-12 bg-white rounded p-1">
+                <div>
+                    <h1 class="text-lg font-bold">Gestión Decreto 67</h1>
+                    <p class="text-green-200 text-xs">Informe Avance Tutoría-Repitencia • Desarrollado por ProfeAle</p>
+                </div>
+            </div>
+            <div class="text-right flex gap-2">
+                <div id="connection-status" class="text-xs bg-yellow-500 text-black px-2 py-1 rounded">Conectando...</div>
+                <button onclick="saveData()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded font-bold shadow text-sm flex items-center gap-2">
+                    <i class="fas fa-save"></i> GUARDAR
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-200 mb-6 no-print">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">1. Curso</label>
+                    <select id="course-select" class="w-full p-2 border rounded bg-gray-50" onchange="filterStudents()">
+                        <option value="">Cargando nómina...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">2. Estudiante</label>
+                    <select id="student-select" class="w-full p-2 border rounded disabled:bg-gray-100" disabled onchange="loadStudentFromList()">
+                        <option value="">← Seleccione curso</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap border-b border-gray-200 bg-white rounded-t-lg no-print">
+            <button onclick="switchTab('ficha')" id="btn-ficha" class="tab-btn active flex-1 py-3 px-2 text-sm"><i class="fas fa-id-card"></i> Ficha</button>
+            <button onclick="switchTab('analisis')" id="btn-analisis" class="tab-btn flex-1 py-3 px-2 text-sm"><i class="fas fa-chart-pie"></i> Análisis</button>
+            <button onclick="switchTab('decision')" id="btn-decision" class="tab-btn flex-1 py-3 px-2 text-sm"><i class="fas fa-gavel"></i> Resolución</button>
+            <button onclick="switchTab('tutoria')" id="btn-tutoria" class="tab-btn flex-1 py-3 px-2 text-sm"><i class="fas fa-hands-helping"></i> Tutoría</button>
+            <button onclick="switchTab('historial')" id="btn-historial" class="tab-btn flex-1 py-3 px-2 text-sm bg-yellow-50 text-yellow-800 font-bold border-yellow-200"><i class="fas fa-folder-open"></i> 5. Gestión e Historial</button>
+        </div>
+
+        <div class="bg-white p-6 rounded-b-lg shadow-sm border border-t-0 border-gray-200 min-h-[600px] no-print relative">
+            
+            <div id="tab-ficha" class="view-section">
+                <h3 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Identificación del Estudiante</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><label class="text-xs font-bold text-gray-500">Nombre Completo</label><input type="text" id="inp-nombre" class="editable font-bold"></div>
+                    <div><label class="text-xs font-bold text-gray-500">RUT</label><input type="text" id="inp-rut" class="editable font-bold"></div>
+                    <div><label class="text-xs font-bold text-gray-500">Curso</label><input type="text" id="inp-curso" class="editable"></div>
+                    <div><label class="text-xs font-bold text-gray-500">Profesor Jefe / Tutor</label><input type="text" id="inp-profesor" class="editable"></div>
+                </div>
+            </div>
+
+            <div id="tab-analisis" class="view-section hidden">
+                <h3 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Análisis de Brecha (Decreto 67)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+                    <div class="bg-gray-50 p-4 rounded border">
+                        <h4 class="font-bold text-sm mb-2 text-blue-800">Calificaciones</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-xs">Semestre 1</label><input type="number" id="inp-sem1" class="editable text-center font-bold" onchange="updateChart()"></div>
+                            <div><label class="text-xs">Semestre 2</label><input type="number" id="inp-sem2" class="editable text-center font-bold" onchange="updateChart()"></div>
+                        </div>
+                        <div class="mt-4"><label class="text-xs">Promedio Curso</label><input type="number" id="inp-prom-curso" value="5.5" class="editable text-center w-24" onchange="updateChart()"></div>
+                    </div>
+                    <div class="h-48 w-full"><canvas id="gapChart"></canvas></div>
+                </div>
+                <div class="space-y-4">
+                    <div><label class="text-xs font-bold text-gray-500">Análisis Pedagógico (Progreso y Brecha)</label><textarea id="inp-analisis-ped" class="editable h-24"></textarea></div>
+                    <div><label class="text-xs font-bold text-gray-500">Factores Socioemocionales</label><textarea id="inp-analisis-soc" class="editable h-24"></textarea></div>
+                </div>
+            </div>
+
+            <div id="tab-decision" class="view-section hidden">
+                <h3 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Resolución del Caso</h3>
+                <div class="flex justify-between items-center mb-4 bg-gray-100 p-3 rounded">
+                    <span class="font-bold">Decisión Final:</span>
+                    <select id="inp-decision" class="p-2 border-2 border-blue-500 rounded font-bold text-blue-800">
+                        <option value="Repitencia">REPITENCIA</option>
+                        <option value="Aprobación">APROBACIÓN (Promovido)</option>
+                    </select>
+                </div>
+                <div class="space-y-4">
+                    <div><label class="text-xs font-bold text-gray-500">Fundamentación de la Decisión</label><textarea id="inp-fundamentacion" class="editable h-32"></textarea></div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="text-xs font-bold text-gray-500">Asignaturas Críticas</label><textarea id="inp-asignaturas" class="editable h-20"></textarea></div>
+                        <div><label class="text-xs font-bold text-gray-500">% Asistencia Final</label><input type="text" id="inp-asistencia" class="editable"></div>
+                    </div>
+                </div>
+                <div class="mt-6 text-center">
+                    <button onclick="printReport('repitencia')" class="bg-gray-800 text-white px-8 py-3 rounded-full hover:bg-black font-bold shadow-lg">
+                        <i class="fas fa-print"></i> IMPRIMIR INFORME REPITENCIA
+                    </button>
+                </div>
+            </div>
+
+            <div id="tab-tutoria" class="view-section hidden">
+                <h3 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Plan de Acompañamiento</h3>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="text-xs font-bold text-gray-500">Profesor Tutor</label><input type="text" id="inp-tutor" class="editable"></div>
+                        <div><label class="text-xs font-bold text-gray-500">Fecha Informe</label><input type="date" id="inp-fecha-tut" class="editable"></div>
+                    </div>
+                    <div><label class="text-xs font-bold text-gray-500">Registro de Acciones y Acuerdos</label><textarea id="inp-acciones" class="editable h-64"></textarea></div>
+                </div>
+                <div class="mt-6 text-center">
+                    <button onclick="printReport('tutoria')" class="bg-blue-600 text-white px-8 py-3 rounded-full hover:bg-blue-700 font-bold shadow-lg">
+                        <i class="fas fa-print"></i> IMPRIMIR INFORME TUTORÍA
+                    </button>
+                </div>
+            </div>
+
+            <div id="tab-historial" class="view-section hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">🗂️ Informes Guardados (Base de Datos 2025)</h3>
+                    <button onclick="loadHistory()" class="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded hover:bg-blue-100 border border-blue-200">
+                        🔄 Cargar Historial Antiguo
+                    </button>
+                </div>
+                <div class="overflow-x-auto border rounded-lg">
+                    <table class="w-full text-sm text-left text-gray-600">
+                        <thead class="bg-gray-100 text-gray-700 uppercase text-xs font-bold">
+                            <tr>
+                                <th class="px-4 py-3">Fecha</th>
+                                <th class="px-4 py-3">Tipo</th>
+                                <th class="px-4 py-3">Estudiante</th>
+                                <th class="px-4 py-3">Curso</th>
+                                <th class="px-4 py-3 text-right">Ver</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body">
+                            <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">Presiona "Cargar Historial Antiguo" para ver los datos.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="print-zone" class="hidden"></div>
+
+    <script>
+        // === 1. CONFIGURACIÓN FIREBASE ANTIGUA (TUS DATOS 2025) ===
+        const firebaseConfig = {
+            apiKey: "AIzaSyAisxzJVm2OzjYEXSi4Q7HxZEUG_aarQwo",
+            authDomain: "notas-liceo-agricola-sscc.firebaseapp.com",
+            databaseURL: "https://notas-liceo-agricola-sscc-default-rtdb.firebaseio.com",
+            projectId: "notas-liceo-agricola-sscc",
+            storageBucket: "notas-liceo-agricola-sscc.firebasestorage.app",
+            messagingSenderId: "434804825732",
+            appId: "1:434804825732:web:8c9035fa88be54cd6facd1"
+        };
+
+        const SCHOOL_NAME = "Escuela Agrícola Sagrados Corazones"; 
+        const LOCATION = "Villa Alegre";
+
+        // NÓMINA 2025
+        const STUDENTS_2025 = [
+            ['2A', '23376817-0', 'EMILYA ANTONIA', 'ALBURQUENQUE DEL GRECO'], ['2A', '22922460-3', 'BENJAMÍN NICOLÁS', 'ANABALÓN BELTRÁN'], ['2A', '23355953-9', 'HADEEY ALEJANDRA', 'CONTRERAS SALGADO'], ['2A', '23560082-K', 'AGUSTÍN ALEXIS', 'FERRADA ALBORNOZ'], ['2A', '23644472-4', 'FERNANDA MAGDALENA', 'IBÁÑEZ GONZÁLEZ'], ['2A', '23389072-3', 'ALEXANDRA DANAE', 'LAGOS LASTRA'], ['2A', '23498596-5', 'LUCIANO ANTONIO', 'LÓPEZ LÓPEZ'], ['2A', '23396870-6', 'ANTONELLA BELÉN', 'MALDONADO FLORES'], ['2A', '22793858-7', 'IGNACIO ANTONIO', 'MARIN MARÍN'], ['2A', '23548214-2', 'VALESKA BELÉN', 'MONTECINO DÍAZ'], ['2A', '23366642-4', 'LUIS GABRIEL', 'MUÑOZ CONTRERAS'], ['2A', '23622121-0', 'ROGER JOEL', 'MUÑOZ LUNA'], ['2A', '23329866-2', 'KARLA PAZ', 'NAVARRO VILLANUEVA'], ['2A', '23388136-8', 'SEBASTIÁN ANDRÉS', 'ORELLANA ARRIAGADA'], ['2A', '23640108-1', 'FELIPE ALONSO', 'QUEZADA NARANJO'], ['2A', '23529637-3', 'FERNANDA FLORENCIA', 'QUINTEROS VERGARA'], ['2A', '23534317-7', 'DUVAN EMILIO', 'RAMÍREZ VILLALOBOS'], ['2A', '23679554-3', 'MARÍA JOSÉ', 'SANTANDER LÓPEZ'], ['2A', '23631475-8', 'JEANFRANCO PATRICK', 'TAPIA CASTILLA'], ['2A', '23007625-1', 'FRANCHESCA POULETTE', 'URBINA CÁCERES'], ['2A', '23584521-0', 'AMANDA ISABEL', 'VÁSQUEZ ZALDUENDO'], ['2A', '23404221-1', 'DAMIÁN ANDRÉS', 'ZABALAGA COFRÉ'], ['2A', '23461777-K', 'LUKAS ALFONSO', 'BAEZ DONOSO'], ['2A', '23032545-6', 'GONZALO IGNACIO', 'MESA DÍAZ'], ['2A', '23367234-3', 'NOEMÍ DE JESÚS DE LAS ESTRELLAS', 'ARAVENA ZÚÑIGA'], ['2A', '22826488-1', 'CRISTÓBAL ANTONIO', 'ASTUDILLO CAMPOS'], ['2A', '23251746-8', 'BRUNO FERNANDO LEÓN', 'ASTUDILLO VÁSQUEZ'], ['2A', '23545428-9', 'CATALINA ANDREA', 'CUMINAO VIDAL'], ['2A', '23224652-9', 'MIGUEL ALBERTO', 'DÍAZ MALUENDA'], ['2A', '23337375-3', 'DIDIER EZEQUIEL', 'KILTAN GONZÁLEZ'], ['2A', '23355954-7', 'MARCO EMILIO', 'LÓPEZ ACUÑA'], ['2A', '23153879-8', 'EYDAN DAMIÁN', 'LÓPEZ NOVOA'], ['2A', '20760552-2', 'FABIÁN FELIPE', 'MÉNDEZ SUAZO'], ['2A', '23391772-9', 'MATEO ANTONIO BENJAMÍN', 'MOYA REYES'], ['2A', '23432193-5', 'VALENTINA ABIGAIL', 'OSES CAMPOS'], ['2A', '23190411-5', 'ANTONELLA FRANCISCA', 'PALMA ORELLANA'], ['2A', '23605196-K', 'MONSERRAT ALAMIRA', 'PEREIRA ORELLANA'], ['2A', '23415461-3', 'ZADKA ALEJANDRA', 'PÉREZ ORMAZÁBAL'], ['2A', '23290841-6', 'FLORENCIA TRINIDAD', 'ROJAS GONZÁLEZ'], ['2A', '23264828-7', 'EDUARDO JAVIER', 'ROJAS LEIVA'], ['2A', '22763630-0', 'SCARLET NICOLE', 'VÁSQUEZ AGUILERA'], ['2A', '23616701-1', 'BRAYAN DAMIÁN', 'YÁÑEZ GONZÁLEZ'], ['2A', '23555453-4', 'MARTINA SAYEN', 'VARGAS MORAGA'], ['2A', '23301500-8', 'PEDRO JOSÉ', 'SALAZAR SALAS'], ['2A', '23296637-8', 'FLORENCIA ANTONIA', 'VERA BRAVO'], ['2A', '23479449-3', 'CONSTANZA TRINIDAD', 'PÉREZ QUEVEDO'], ['2A', '23112966-9', 'BENJAMÍN ALONSO', 'RIQUELME SANTOS'], ['3A', '23006149-1', 'TRINIDAD BELÉN', 'AHUMADA ROJAS'], ['3A', '23090163-5', 'FERNANDA ELENA', 'ESPINOSA TORRES'], ['3A', '23236242-1', 'BRAYAN JESÚS', 'ESPINOZA PEÑALILLO'], ['3A', '23121508-5', 'EMILIA CATALINA', 'GONZÁLEZ SALAZAR'], ['3A', '23132468-2', 'LEÓN IGNACIO', 'MEDEL OJEDA'], ['3A', '22617512-1', 'ALFONSO TOMÁS', 'MORALES REIMÁN'], ['3A', '23054557-K', 'MAXIMILIANO EDUARDO', 'PEREIRA HORMAZÁBAL'], ['3A', '23029359-7', 'JORDÁN AMARO', 'PINTO TOBAR'], ['3A', '23086976-6', 'KEVIN ANDRÉS', 'RECABAL YÁÑEZ'], ['3A', '23284002-1', 'MATÍAS EDUARDO ANTONIO', 'RIQUELME CASTILLO'], ['3A', '23141589-0', 'CONSTANZA VICTORIA', 'RIVERA ABARZA'], ['3A', '23294557-5', 'TEIVA SCARLETT', 'SANTIS CASSEUS'], ['3A', '22912548-6', 'KATHERINNE ALEXIA BELÉN', 'SOBARZO YÉVENES'], ['3A', '23209204-1', 'ANTONELLA INES', 'TOLEDO ALBORNOZ'], ['3A', '23115030-7', 'ANTONIA EDITH', 'VENEGAS ARRIAGADA'], ['3A', '23146366-6', 'JOAN MANUEL', 'VIELMA ZABALAGA'], ['3A', '23255825-3', 'ANGEL BLAS', 'MEZA COLIMÁN'], ['3A', '23164383-4', 'FLORENCIA ALEJANDRA', 'SAAVEDRA BRAVO'], ['3C', '22927087-7', 'ALEX FABIÁN', 'ARAYA DOMÍNGUEZ'], ['3C', '23099931-7', 'ALEX JOHAN', 'BRAVO MENARES'], ['3C', '23200990-K', 'BENJAMÍN IGNACIO', 'CARRASCO LEIVA'], ['3C', '23086622-8', 'CONSTANZA PRISILA (DANIEL)', 'CARVAJAL URRUTIA'], ['3C', '23194660-8', 'DIEGO BENJAMÍN ALEXANDER', 'ENCINA PIZARRO'], ['3C', '23229539-2', 'ALEJANDRO ANTONIO', 'FAÚNDEZ NORAMBUENA'], ['3C', '22827535-2', 'EMILIO SCOTT', 'JARAMILLO VILLAR'], ['3C', '23321258-K', 'MARTÍN ALONSO', 'LÓPEZ VILLAR'], ['3C', '23285276-3', 'ALEXANDRA JAVIERA', 'MIRANDA MUÑOZ'], ['3C', '22459961-7', 'HÉCTOR ANTONIO', 'MUÑOZ TRONCOSO'], ['3C', '23097156-0', 'ALONSO IGNACIO', 'OLIVARES VALENZUELA'], ['3C', '22804086-K', 'ANTONELLA DANAE IGNACIA', 'OLIVARES VALENZUELA'], ['3C', '22876195-8', 'MATÍAS LEANDRO', 'ORELLANA GARRIDO'], ['3C', '23113000-4', 'MILLARAY ANGÉLICA', 'PUNOY MEDEL'], ['3C', '23118361-2', 'CRISTÓBAL PATRICIO', 'QUIÑENAO MUÑOZ'], ['3C', '23244598-K', 'DALIA CONSTANZA', 'RIQUELME COLOMA'], ['3C', '23304433-4', 'VICENTE MOISÉS', 'SALGADO ROJAS'], ['3C', '22922664-9', 'VICENTE ESTEBAN', 'SANDOVAL CERPA'], ['3C', '23230279-8', 'CHRISTOPHER', '', 'SOTO NARANJO'], ['3C', '22907717-1', 'MARTÍN', '', 'VEKARIC VERDEJO'],
+            ['4A', '22717035-2', 'MARTINA ALEJANDRA', 'ALCÁNTAR GARCÍA'], ['4A', '22202028-K', 'ARIEL LEON', 'BAHAMONDE MUÑOZ'], ['4A', '22932851-4', 'CRISTOPHER JESÚS', 'CAMPOS MUÑOZ'], ['4A', '22587064-0', 'VICENTE GASPAR', 'CANCINO ORÓSTICA'], ['4A', '22935345-4', 'CAMILA ANDREA', 'CARRASCO GONZÁLEZ'], ['4A', '22852052-7', 'ANTONIO ANDRÉS', 'COFRÉ CASTILLO'], ['4A', '22542992-8', 'BELÉN ALEJANDRA', 'CONTRERAS VENEGAS'], ['4A', '22897408-0', 'FELIPE ESTEBAN', 'GALDAMES VERGARA'], ['4A', '22152106-4', 'SANTIAGO HUMBERTO', 'GARCÍA GONZÁLEZ'], ['4A', '22820588-5', 'FRANCISCA IGNACIA', 'GONZÁLEZ AMIGO'], ['4A', '22565627-4', 'JOAQUÍN ALONSO', 'GONZÁLEZ SALAZAR'], ['4A', '22808692-4', 'ANGEL MARTÍN', 'GUTIÉRREZ GUTIÉRREZ'], ['4A', '22970003-0', 'AARON ALEJANDRO', 'MARTÍNEZ LIZANA'], ['4A', '22482618-4', 'BENJAMÍN INTI', 'MEZA CARRASCO'], ['4A', '22858572-6', 'CATALINA ANDREA', 'MIÑO GONZALEZ'], ['4A', '22932822-0', 'RENATO IGNACIO', 'MORAGA PACHECO'], ['4A', '22839912-4', 'MANUEL IGNACIO', 'PÉREZ CORÓN'], ['4A', '100710921-7', 'JAKSON FERGIE', 'SAMANIEGO CORTEZ'], ['4A', '22889391-9', 'SOFÍA ANTONIA', 'SEPÚLVEDA SALAZAR'], ['4A', '22709426-5', 'GABRIEL ANTONIO', 'TAPIA ACUÑA'], ['4A', '23022549-4', 'CRISTÓBAL ANTONIO', 'VEGA VIVANCO'], ['4A', '22903476-6', 'DANIELA ELIZABETH', 'VERA NAVARRETE'], ['4A', '22792420-9', 'KARINA ANGELINA', 'VILLALOBOS ARAVENA'], ['4A', '22733377-4', 'SAMIR LUCIAN JESUS', 'VILLALOBOS VILLALOBOS'], ['4A', '22644932-9', 'VICENTE ALEJANDRO', 'HERNÁNDEZ SEPÚLVEDA'], ['4A', '100793606-7', 'FLORVELIS DE LOS ANGELES', 'TORREALBA MOYA'], ['4A', '23038091-0', 'CONSUELO ANTONIA', 'CARO URRUTIA'], ['4A', '22448022-9', 'ANTONIA PAZ', 'LOBOS CÁCERES'], ['4C', '22558171-1', 'MARTÍN ANTONIO', 'ARELLANO ACUÑA'], ['4C', '22897577-K', 'DAYANA IGNACIA', 'AROS ÁVILA'], ['4C', '22339310-1', 'MARÍA GRACIA', 'CABRERA COLOMBINO'], ['4C', '22865819-7', 'YARIXA ALEJANDRA', 'FUENTES CARRASCO'], ['4C', '22971225-K', 'DANIELA ALEJANDRA', 'GÓMEZ CANCINO'], ['4C', '22698950-1', 'MILLARAY CAROLINA', 'GUTIÉRREZ CARRIÓN'], ['4C', '22665539-5', 'GLORIA JAVIERA', 'HONORATO TAPIA'], ['4C', '22907525-K', 'BENJAMÍN ESTEBAN', 'LARA RIVERA'], ['4C', '22801082-0', 'JOSÉ TOMÁS', 'PALACIOS SOTO'], ['4C', '22477831-7', 'JOSÉ CRISTÓBAL', 'PEZO SANTANDER'], ['4C', '22796354-9', 'JOSÉ PABLO WILLIAMS', 'ROCHA ROJAS'], ['4C', '22876139-7', 'FABIANA ISIDORA', 'ROJAS YÉVENES'], ['4C', '22916573-9', 'ANDY ANTONIO', 'SÁNCHEZ PAREJA'], ['4C', '22845486-9', 'SIMÓN ESTEBAN', 'SANTANDER LÓPEZ'], ['4C', '23004590-9', 'SIOMARA IGNACIA', 'TRONCOSO LIZAMA'], ['4C', '23009921-9', 'LUCIANA BERNABELA', 'WARNKEN ROJAS'], ['4C', '22783846-9', 'FRANCO SEBASTIÁN', 'DE LA HOZ VALENZUELA'], ['4C', '23048274-8', 'ANAÍS VALENTINA', 'COLLAO MEDINA']
+        ];
+
+        let db, chartInstance = null;
+
+        // INICIALIZACIÓN
+        window.onload = function() {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            const auth = firebase.auth();
+
+            auth.signInAnonymously().then(() => {
+                document.getElementById('connection-status').innerText = "Conectado ✅";
+                document.getElementById('connection-status').classList.remove('bg-yellow-500', 'text-black');
+                document.getElementById('connection-status').classList.add('bg-green-600', 'text-white');
+                populateDropdowns();
+                loadHistory(); 
+            }).catch((error) => {
+                console.error("Error Auth:", error);
+                document.getElementById('connection-status').innerText = "Error Conexión ❌";
+                document.getElementById('connection-status').classList.add('bg-red-600', 'text-white');
+            });
+        };
+
+        function populateDropdowns() {
+            const courseSelect = document.getElementById('course-select');
+            const courses = [...new Set(STUDENTS_2025.map(s => s[0]))].sort();
+            courses.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c; opt.innerText = c;
+                courseSelect.appendChild(opt);
+            });
+        }
+
+        window.filterStudents = () => {
+            const course = document.getElementById('course-select').value;
+            const select = document.getElementById('student-select');
+            select.innerHTML = '<option value="">-- Seleccione Alumno --</option>';
+            select.disabled = true;
+            if(course) {
+                STUDENTS_2025.filter(s => s[0] === course).forEach(s => {
+                    const fullName = `${s[3]} ${s[2]}`;
+                    select.innerHTML += `<option value="${s[1]}">${fullName}</option>`;
+                });
+                select.disabled = false;
+            }
+        };
+
+        window.loadStudentFromList = () => {
+            const rut = document.getElementById('student-select').value;
+            const student = STUDENTS_2025.find(s => s[1] === rut);
+            if(student) {
+                document.getElementById('inp-nombre').value = `${student[3]} ${student[2]}`;
+                document.getElementById('inp-rut').value = student[1];
+                document.getElementById('inp-curso').value = student[0];
+            }
+        };
+
+        window.updateChart = () => {
+            const ctx = document.getElementById('gapChart');
+            const p1 = parseFloat(document.getElementById('inp-sem1').value) || 0;
+            const p2 = parseFloat(document.getElementById('inp-sem2').value) || 0;
+            const final = (p1 && p2) ? (p1+p2)/2 : 0;
+            const curso = parseFloat(document.getElementById('inp-prom-curso').value) || 5.5;
+
+            if(chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Estudiante', 'Prom. Curso'],
+                    datasets: [{
+                        label: 'Notas',
+                        data: [final, curso],
+                        backgroundColor: [final<4?'#ef4444':'#3b82f6', '#94a3b8']
+                    }]
+                },
+                options: { responsive:true, maintainAspectRatio: false, scales: { y: { min:1, max:7 } } }
+            });
+        };
+
+        // --- GESTIÓN DE DATOS ---
+        window.saveData = async () => {
+            const rut = document.getElementById('inp-rut').value;
+            if(!rut) { Swal.fire('Falta RUT', 'Seleccione un alumno.', 'warning'); return; }
+
+            const reportData = {
+                reportInfo: { number: "MANUAL-" + Date.now().toString().substr(-4) },
+                student: {
+                    name: document.getElementById('inp-nombre').value,
+                    run: rut,
+                    course: document.getElementById('inp-curso').value,
+                    tutor: document.getElementById('inp-profesor').value
+                },
+                academic: {
+                    sem1Avg: document.getElementById('inp-sem1').value,
+                    sem2Avg: document.getElementById('inp-sem2').value,
+                    courseAvg: document.getElementById('inp-prom-curso').value,
+                    failedSubjectsText: document.getElementById('inp-asignaturas').value 
+                },
+                decree67Analysis: {
+                    progress: document.getElementById('inp-analisis-ped').value,
+                    socioemotional: document.getElementById('inp-analisis-soc').value
+                },
+                decision: {
+                    status: document.getElementById('inp-decision').value,
+                    justification: document.getElementById('inp-fundamentacion').value,
+                    attendance: document.getElementById('inp-asistencia').value
+                },
+                tutoria: {
+                    tutor1: document.getElementById('inp-tutor').value,
+                    reportDate: document.getElementById('inp-fecha-tut').value,
+                    sem2: { agreements: document.getElementById('inp-acciones').value } 
+                },
+                savedAt: new Date().toISOString()
+            };
+
+            try {
+                await db.collection('artifacts').doc('liceo-agricola').collection('public').doc('data').collection('informes')
+                        .doc('REP_' + rut.replace(/[^0-9kK]/g, '')).set(reportData);
+                Swal.fire('Guardado', 'Informe registrado.', 'success');
+                loadHistory();
+            } catch (e) { console.error(e); Swal.fire('Error', e.message, 'error'); }
+        };
+
+        window.loadHistory = async () => {
+            const tbody = document.getElementById('history-body');
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">Cargando...</td></tr>';
+            try {
+                const snap = await db.collection('artifacts').doc('liceo-agricola').collection('public').doc('data').collection('informes').get();
+                tbody.innerHTML = '';
+                if(snap.empty) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-red-500">Sin informes.</td></tr>'; return; }
+
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    const date = d.savedAt ? new Date(d.savedAt).toLocaleDateString() : '---';
+                    const type = d.decision?.status || 'Informe';
+                    tbody.innerHTML += `
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-2">${date}</td>
+                            <td class="px-4 py-2"><span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-bold">${type}</span></td>
+                            <td class="px-4 py-2">${d.student?.name || '---'}</td>
+                            <td class="px-4 py-2">${d.student?.course || '---'}</td>
+                            <td class="px-4 py-2 text-right"><button onclick="loadReport('${doc.id}')" class="text-blue-600 hover:text-blue-800 underline text-xs font-bold">ABRIR</button></td>
+                        </tr>
+                    `;
+                });
+            } catch (e) { console.error(e); }
+        };
+
+        window.loadReport = async (id) => {
+            try {
+                const docSnap = await db.collection('artifacts').doc('liceo-agricola').collection('public').doc('data').collection('informes').doc(id).get();
+                if(docSnap.exists) {
+                    const d = docSnap.data();
+                    document.getElementById('inp-nombre').value = d.student?.name || '';
+                    document.getElementById('inp-rut').value = d.student?.run || '';
+                    document.getElementById('inp-curso').value = d.student?.course || '';
+                    document.getElementById('inp-profesor').value = d.student?.tutor || '';
+                    
+                    document.getElementById('inp-sem1').value = d.academic?.sem1Avg || 0;
+                    document.getElementById('inp-sem2').value = d.academic?.sem2Avg || 0;
+                    document.getElementById('inp-prom-curso').value = d.academic?.courseAvg || 5.5;
+                    
+                    document.getElementById('inp-analisis-ped').value = d.decree67Analysis?.progress || '';
+                    document.getElementById('inp-analisis-soc').value = d.decree67Analysis?.socioemotional || '';
+                    
+                    document.getElementById('inp-decision').value = d.decision?.status || 'Repitencia';
+                    document.getElementById('inp-fundamentacion').value = d.decision?.justification || '';
+                    document.getElementById('inp-asignaturas').value = d.academic?.failedSubjectsText || d.decision?.failedSubjects || '';
+                    document.getElementById('inp-asistencia').value = d.decision?.attendance || '';
+                    
+                    document.getElementById('inp-tutor').value = d.tutoria?.tutor1 || '';
+                    const acc1 = d.tutoria?.sem1?.agreements || "";
+                    const acc2 = d.tutoria?.sem2?.agreements || "";
+                    document.getElementById('inp-acciones').value = (acc1 + "\n" + acc2).trim() || d.tutoria?.sem2?.agreements || "";
+                    
+                    updateChart();
+                    switchTab('ficha');
+                    Swal.fire('Cargado', 'Informe recuperado.', 'success');
+                }
+            } catch (e) { console.error(e); }
+        };
+
+        // --- IMPRESIÓN (CON GRÁFICO VISUAL CSS) ---
+        window.printReport = (type) => {
+            const getVal = (id) => document.getElementById(id).value || "---";
+            
+            // Cálculos para gráfico visual en papel
+            const p1 = parseFloat(getVal('inp-sem1')) || 0;
+            const p2 = parseFloat(getVal('inp-sem2')) || 0;
+            const promAlumno = ((p1 + p2) / 2).toFixed(1);
+            const promCurso = parseFloat(getVal('inp-prom-curso')) || 5.5;
+            
+            // Porcentajes para barra (Escala 7.0 = 100%)
+            const pctAlumno = Math.min((promAlumno / 7) * 100, 100);
+            const pctCurso = Math.min((promCurso / 7) * 100, 100);
+            const colorAlumno = promAlumno < 4.0 ? '#ef4444' : '#3b82f6';
+
+            const visualGraph = `
+                <div style="margin-top:10px; border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:15px; page-break-inside: avoid;">
+                    <div class="visual-bar-container">
+                        <div class="visual-bar-label">Promedio Alumno (${promAlumno}):</div>
+                        <div class="visual-bar-track"><div class="visual-bar-fill" style="width:${pctAlumno}%; background-color:${colorAlumno} !important; -webkit-print-color-adjust: exact;"></div></div>
+                    </div>
+                    <div class="visual-bar-container">
+                        <div class="visual-bar-label">Promedio Curso (${promCurso}):</div>
+                        <div class="visual-bar-track"><div class="visual-bar-fill" style="width:${pctCurso}%; background-color:#9ca3af !important; -webkit-print-color-adjust: exact;"></div></div>
+                    </div>
+                </div>
+            `;
+
+            const commonHeader = `
+                <div class="doc-header">
+                    <div style="display:flex; gap:15px; align-items:center;">
+                        <img src="logo.jpg" style="height:70px;">
+                        <div>
+                            <h2 style="margin:0; font-weight:bold; font-size:12pt; text-transform:uppercase;">${SCHOOL_NAME}</h2>
+                            <p style="margin:0; font-size:10pt;">${LOCATION} • UTP</p>
+                        </div>
+                    </div>
+                    <div style="text-align:right; font-size:10pt;">
+                        <p><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
+                    </div>
+                </div>
+            `;
+
+            let html = '';
+            
+            if(type === 'repitencia') {
+                html = `
+                    <div class="doc-container">
+                        ${commonHeader}
+                        <div class="doc-title">INFORME DE SITUACIÓN ACADÉMICA</div>
+                        
+                        <div class="doc-section">I. ANTECEDENTES</div>
+                        <table style="width:100%; margin-bottom:10px;">
+                            <tr><td><strong>Nombre:</strong> ${getVal('inp-nombre')}</td><td><strong>RUT:</strong> ${getVal('inp-rut')}</td></tr>
+                            <tr><td><strong>Curso:</strong> ${getVal('inp-curso')}</td><td><strong>Asistencia:</strong> ${getVal('inp-asistencia')}</td></tr>
+                        </table>
+
+                        <div class="doc-section">II. ANÁLISIS DECRETO 67</div>
+                        ${visualGraph}
+                        
+                        <div style="margin-top:15px;">
+                            <p class="doc-field"><strong>Análisis Pedagógico (Brecha y Progreso):</strong></p>
+                            <div class="doc-box">${getVal('inp-analisis-ped')}</div>
+                        </div>
+                        
+                        <div style="margin-top:15px;">
+                            <p class="doc-field"><strong>Factores Socioemocionales:</strong></p>
+                            <div class="doc-box">${getVal('inp-analisis-soc')}</div>
+                        </div>
+
+                        <div class="doc-section">III. RESOLUCIÓN</div>
+                        <p class="doc-field"><strong>Decisión Final:</strong> <span style="border:1px solid black; padding:2px 5px; font-weight:bold;">${getVal('inp-decision')}</span></p>
+                        <p class="doc-field"><strong>Fundamentación:</strong></p>
+                        <div class="doc-box" style="min-height:100px;">${getVal('inp-fundamentacion')}</div>
+
+                        <div class="doc-signatures">
+                            <div class="doc-sign-line">
+                                ${getVal('inp-profesor')}<br>
+                                <span style="font-weight:normal; font-size:9pt;">Profesor Tutor/Jefe</span>
+                            </div>
+                            <div class="doc-sign-line">
+                                Alejandra Morales G.<br>
+                                <span style="font-weight:normal; font-size:9pt;">Unidad Técnico Pedagógica</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                html = `
+                    <div class="doc-container">
+                        ${commonHeader}
+                        <div class="doc-title">INFORME DE TUTORÍA PEDAGÓGICA</div>
+                        
+                        <div class="doc-section">I. IDENTIFICACIÓN</div>
+                        <p><strong>Estudiante:</strong> ${getVal('inp-nombre')}</p>
+                        <p><strong>Curso:</strong> ${getVal('inp-curso')}</p>
+                        <p><strong>Profesor Tutor:</strong> ${getVal('inp-tutor')}</p>
+                        <p><strong>Fecha Inicio:</strong> ${getVal('inp-fecha-tut')}</p>
+
+                        <div class="doc-section">II. REGISTRO DE ACOMPAÑAMIENTO</div>
+                        <div class="doc-box" style="min-height:400px;">${getVal('inp-acciones')}</div>
+
+                        <div class="doc-signatures">
+                            <div class="doc-sign-line">
+                                ${getVal('inp-tutor')}<br>
+                                <span style="font-weight:normal; font-size:9pt;">Profesor Tutor</span>
+                            </div>
+                            <div class="doc-sign-line">
+                                Firma Estudiante / Apoderado
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('print-zone').innerHTML = html;
+            window.print();
+        };
+
+        window.switchTab = (tab) => {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`btn-${tab}`).classList.add('active');
+            if(tab === 'historial') loadHistory();
+            if(tab === 'analisis') setTimeout(updateChart, 200);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitácora Curricular - ProfeAle</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        body { background-color: #f0f4f3; font-family: 'Segoe UI', system-ui, sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
+        
+        /* --- ESTILOS VISUALES (PANTALLA) --- */
+        .header-band { 
+            background: linear-gradient(135deg, #157347 0%, #0b4129 100%); 
+            color: white; padding: 15px 0; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
+        }
+        .nav-pills .nav-link.active { background-color: #198754; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .nav-pills .nav-link { color: #198754; font-weight: 600; margin: 0 5px; }
+        .check-month { transform: scale(1.4); cursor: pointer; border-color: #198754; }
+        .card-oa { border-left: 5px solid #198754; background: white; margin-bottom: 12px; transition: transform 0.2s; }
+        .card-oa:hover { transform: translateX(3px); }
+        #loadingOverlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(255,255,255,0.95); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        .app-footer { margin-top: auto; padding: 25px; text-align: center; color: #6c757d; font-size: 0.85rem; border-top: 1px solid #dee2e6; background: #fff; }
+        .dev-credit { font-weight: bold; color: #198754; text-decoration: none; }
+
+        /* --- ESTILOS PDF / IMPRESIÓN --- */
+        #pdf-content-area {
+            display: none; /* Oculto en pantalla normal */
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: white;
+            width: 100%;
+            max-width: 1100px;
+        }
+        .pdf-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 10px; }
+        .pdf-table th, .pdf-table td { border: 1px solid #444; padding: 6px; text-align: left; vertical-align: middle; }
+        .pdf-table th { background-color: #e8f5e9 !important; text-align: center; font-weight: bold; color: #000; text-transform: uppercase; -webkit-print-color-adjust: exact; }
+        .pdf-check { font-weight: bold; font-size: 12px; text-align: center; }
+        .membrete-table { width: 100%; border-bottom: 2px solid #198754; margin-bottom: 20px; padding-bottom: 10px; }
+        .membrete-table td { border: none; vertical-align: middle; }
+
+        /* --- MAGIA DE IMPRESIÓN --- */
+        @media print {
+            body * { visibility: hidden; } /* Ocultar todo */
+            #pdf-content-area, #pdf-content-area * { visibility: visible; } /* Mostrar solo el reporte */
+            #pdf-content-area { 
+                display: block !important; 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                margin: 0; 
+                padding: 0;
+            }
+            @page { size: landscape; margin: 1cm; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+    <div class="spinner-border text-success" style="width: 3rem; height: 3rem;" role="status"></div>
+    <div class="mt-3 fw-bold text-secondary">Conectando con Servidor UTP...</div>
+</div>
+
+<div class="header-band no-print">
+    <div class="container d-flex align-items-center justify-content-center gap-3">
+        <div class="bg-white p-1 rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 65px; height: 65px;">
+            <i class="bi bi-journal-bookmark-fill text-success fs-2"></i> 
+        </div>
+        <div class="text-start">
+            <h3 class="m-0 fw-bold">Bitácora Curricular Digital</h3>
+            <p class="opacity-75 mb-0 small">Escuela Agrícola Sagrados Corazones - Gestión UTP</p>
+        </div>
+    </div>
+</div>
+
+<div class="container mb-5 no-print" id="main-container">
+    
+    <div class="card shadow-sm mb-4 border-success" id="select-zone">
+        <div class="card-body">
+            <div class="row align-items-center g-3">
+                <div class="col-md-5">
+                    <label class="small fw-bold text-muted mb-1"><i class="bi bi-search me-1"></i> Seleccione su Asignatura:</label>
+                    <select class="form-select fw-bold border-success shadow-sm" id="selectCurso" onchange="window.cargarDatosCurso()">
+                        <option value="">Cargando cursos...</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-7 d-flex justify-content-md-end gap-2 align-items-end flex-wrap">
+                    <button class="btn btn-outline-danger fw-bold shadow-sm" onclick="window.descargarPDFDirecto()" id="btn-pdf" disabled>
+                        <i class="bi bi-file-earmark-pdf-fill me-1"></i> Descargar PDF
+                    </button>
+                    <button class="btn btn-dark fw-bold shadow-sm" onclick="window.imprimirReporte()" id="btn-print" disabled>
+                        <i class="bi bi-printer-fill me-1"></i> Imprimir
+                    </button>
+                    <button class="btn btn-success fw-bold shadow-sm" onclick="window.iniciarFlujoCorreo()" id="btn-mail" disabled>
+                        <i class="bi bi-envelope-paper-fill me-2"></i> Enviar a UTP
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="zona-trabajo" style="display:none;">
+        <ul class="nav nav-pills mb-3 nav-fill shadow-sm bg-white rounded p-2" id="pills-tab">
+            <li class="nav-item">
+                <button class="nav-link active" id="tab-plan" data-bs-toggle="pill" data-bs-target="#pills-plan"><i class="bi bi-calendar-range me-2"></i>1. PLANIFICACIÓN / INDICADORES</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="tab-real" data-bs-toggle="pill" data-bs-target="#pills-real" onclick="window.sincronizarCobertura()"><i class="bi bi-check2-square me-2"></i>2. REGISTRO DE COBERTURA</button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="pills-plan">
+                <div class="alert alert-success bg-opacity-10 border-success py-2 small d-flex align-items-center">
+                    <i class="bi bi-info-circle-fill me-2 fs-5 text-success"></i>
+                    <div><strong>Instrucción:</strong> Ingrese los Objetivos de Aprendizaje o Indicadores de Evaluación.</div>
+                </div>
+                <div id="container-plan" class="mb-4"></div> 
+                <div class="text-center my-4">
+                    <button class="btn btn-outline-success rounded-pill fw-bold px-4" onclick="agregarFilaPlan()"><i class="bi bi-plus-circle-fill me-1"></i> Agregar Objetivo</button>
+                </div>
+                <div class="d-grid">
+                    <button class="btn btn-success btn-lg shadow fw-bold" onclick="guardarTodo()"><i class="bi bi-cloud-arrow-up-fill me-2"></i> GUARDAR CAMBIOS EN NUBE</button>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="pills-real">
+                <div class="alert alert-warning bg-opacity-10 border-warning py-2 small d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill me-2 fs-5 text-warning"></i>
+                    <div><strong>Instrucción:</strong> Marque las casillas de los meses trabajados.</div>
+                </div>
+                <div class="table-responsive bg-white shadow-sm rounded p-3">
+                    <table class="table table-hover align-middle table-sm" id="table-cobertura">
+                        <thead class="table-light text-center small">
+                            <tr><th class="text-start" style="width: 40%">Objetivo / Indicador</th><th>MAR</th><th>ABR</th><th>MAY</th><th>JUN</th><th>JUL</th><th>AGO</th><th>SEP</th><th>OCT</th><th>NOV</th><th>DIC</th></tr>
+                        </thead>
+                        <tbody id="tbody-real"></tbody>
+                    </table>
+                </div>
+                <div class="text-end mt-3 mb-4">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="agregarFilaExtra()"><i class="bi bi-plus-lg"></i> Agregar Extra</button>
+                </div>
+                <div class="d-grid">
+                    <button class="btn btn-success btn-lg shadow fw-bold" onclick="guardarTodo()"><i class="bi bi-cloud-arrow-up-fill me-2"></i> GUARDAR AVANCE EN NUBE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="app-footer no-print">
+    <div class="container">
+        <p class="mb-0 fw-bold">Escuela Agrícola Sagrados Corazones</p>
+        <p class="mb-1">Sistema de Gestión Curricular Integrada © 2025</p>
+        <small>Plataforma desarrollada por <span class="dev-credit">ProfeAle</span></small>
+    </div>
+</footer>
+
+<div id="pdf-content-area">
+    <table class="membrete-table">
+        <tr>
+            <td style="width: 100px; text-align: center;">
+                <img src="https://cdn-icons-png.flaticon.com/512/2830/2830198.png" id="pdf-logo-img" style="max-width: 80px; max-height: 80px;">
+            </td>
+            <td style="padding-left: 20px; vertical-align: middle;">
+                <h2 style="color: #000; margin: 0; font-size: 16px; text-transform: uppercase;">Informe de Cobertura Curricular</h2>
+                <p style="margin: 2px 0; color: #555; font-size: 11px; font-weight: bold;">Escuela Agrícola Sagrados Corazones</p>
+                <p style="margin: 0; color: #777; font-size: 10px;">Unidad Técnico Pedagógica</p>
+            </td>
+            <td style="text-align: right; vertical-align: bottom;">
+                <span style="font-size: 8px; color: #aaa;">Generado por Sistema ProfeAle</span>
+            </td>
+        </tr>
+    </table>
+
+    <table style="width:100%; margin-bottom:15px; font-size:11px; background-color: #f8f9fa; padding: 5px; border: 1px solid #ccc;">
+        <tr><td style="padding: 4px;"><strong>Docente:</strong> <span id="pdf-docente"></span></td><td style="padding: 4px;"><strong>Asignatura:</strong> <span id="pdf-asignatura"></span></td></tr>
+        <tr><td style="padding: 4px;"><strong>Nivel:</strong> <span id="pdf-nivel"></span></td><td style="padding: 4px;"><strong>Fecha Emisión:</strong> <span id="pdf-fecha-header"></span></td></tr>
+    </table>
+
+    <h5 style="border-bottom: 1px solid #888; padding-bottom: 2px; font-size: 12px; margin-top: 10px; color: #198754;">I. PLANIFICACIÓN ANUAL</h5>
+    <table class="pdf-table"><thead><tr><th width="12%">CÓDIGO</th><th>DESCRIPCIÓN</th><th width="12%">MES INICIO</th></tr></thead><tbody id="pdf-tbody-plan"></tbody></table>
+
+    <h5 style="border-bottom: 1px solid #888; padding-bottom: 2px; font-size: 12px; margin-top: 20px; color: #198754;">II. MATRIZ DE COBERTURA REAL</h5>
+    <table class="pdf-table"><thead><tr><th width="25%">OA</th><th>MAR</th><th>ABR</th><th>MAY</th><th>JUN</th><th>JUL</th><th>AGO</th><th>SEP</th><th>OCT</th><th>NOV</th><th>DIC</th></tr></thead><tbody id="pdf-tbody-real"></tbody></table>
+    
+    <div style="margin-top: 60px; display: flex; justify-content: space-around;">
+        <div style="text-align: center;"><p style="border-top: 1px solid #000; width: 180px; margin: 0 auto; padding-top: 5px; font-size: 10px;">Firma del Docente</p></div>
+        <div style="text-align: center;"><p style="border-top: 1px solid #000; width: 180px; margin: 0 auto; padding-top: 5px; font-size: 10px;">Timbre / Recepción UTP</p></div>
+    </div>
+</div>
+
+<template id="tpl-plan">
+    <div class="card card-oa shadow-sm position-relative">
+        <button onclick="borrarCard(this)" class="btn-close position-absolute top-0 end-0 m-2 no-print"></button>
+        <div class="card-body py-2">
+            <div class="row align-items-center">
+                <div class="col-md-2 mb-2 mb-md-0"><select class="form-select fw-bold text-success input-code"><script>for(let i=1;i<=30;i++) document.write(`<option value="OA${i}">OA ${i}</option>`);</script><option value="OAA">OAA</option><option value="OAT">OAT</option></select></div>
+                <div class="col-md-8 mb-2 mb-md-0"><textarea class="form-control border-0 bg-transparent input-desc" rows="2" placeholder="Pegue aquí el Objetivo o Indicador..."></textarea></div>
+                <div class="col-md-2"><select class="form-select form-select-sm input-mes"><option value="Anual">Anual</option><option value="MAR">Marzo</option><option value="ABR">Abril</option><option value="MAY">Mayo</option><option value="JUN">Junio</option><option value="JUL">Julio</option><option value="AGO">Agosto</option><option value="SEP">Septiembre</option><option value="OCT">Octubre</option><option value="NOV">Noviembre</option><option value="DIC">Diciembre</option></select></div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getFirestore, collection, doc, updateDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+    const firebaseConfig = { apiKey: "AIzaSyDUArOBUzzvulHYQGA7IvnEwo2jQbEa3Xs", authDomain: "attendance-ai-s81lt.firebaseapp.com", projectId: "attendance-ai-s81lt", storageBucket: "attendance-ai-s81lt.firebasestorage.app", messagingSenderId: "935781953186", appId: "1:935781953186:web:6c8a7a93ffad180d33b1fb" };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const CLAVE_UNIVERSAL = "2025"; 
+
+    let cursoActual = null, docenteNombre = "Docente";
+
+    onSnapshot(collection(db, "cursos"), (s) => {
+        const sel = document.getElementById('selectCurso'); const prev = sel.value; sel.innerHTML = '<option value="">-- Seleccione Asignatura --</option>';
+        s.docs.forEach(d => { const dt = d.data(); sel.innerHTML += `<option value="${d.id}">${dt.nombre} (${dt.nivel})</option>`; });
+        document.getElementById('loadingOverlay').style.display='none'; if(prev && cursoActual && prev===cursoActual.id) sel.value = prev;
+    });
+
+    window.cargarDatosCurso = async () => {
+        const id = document.getElementById('selectCurso').value;
+        if(!id) { ocultarZona(); return; }
+        setTimeout(async () => {
+            if (prompt("🔒 SEGURIDAD REQUERIDA\nIngrese Clave Docente:") !== CLAVE_UNIVERSAL) { alert("⛔ Clave Incorrecta"); document.getElementById('selectCurso').value=""; ocultarZona(); return; }
+            document.getElementById('loadingOverlay').style.display='flex';
+            onSnapshot(doc(db, "cursos", id), async (snap) => {
+                if(!snap.exists()){ alert("Curso no existe"); return; }
+                cursoActual = { id: snap.id, ...snap.data() };
+                if(cursoActual.docenteId) { const d = await getDoc(doc(db, "docentes", cursoActual.docenteId)); docenteNombre = d.exists()?d.data().nombre:"Docente"; }
+                renderPlan(); document.getElementById('zona-trabajo').style.display='block'; toggleBtns(false);
+                document.getElementById('loadingOverlay').style.display='none'; sincronizarCobertura();
+            });
+        }, 100);
+    };
+
+    function ocultarZona(){ document.getElementById('zona-trabajo').style.display='none'; toggleBtns(true); cursoActual=null; }
+    function toggleBtns(d){ document.getElementById('btn-pdf').disabled=d; document.getElementById('btn-print').disabled=d; document.getElementById('btn-mail').disabled=d; }
+
+    const renderPlan = () => {
+        const c = document.getElementById('container-plan'); c.innerHTML="";
+        const p = cursoActual.plan||[];
+        if(p.length===0) window.agregarFilaPlan(); else p.forEach(o=>window.agregarFilaPlan(o.codigo,o.desc,o.mes));
+    };
+
+    window.sincronizarCobertura = () => {
+        const tbW=document.getElementById('tbody-real'); tbW.innerHTML="";
+        const tbP1=document.getElementById('pdf-tbody-plan'); tbP1.innerHTML="";
+        const tbP2=document.getElementById('pdf-tbody-real'); tbP2.innerHTML="";
+        let vis=new Set(); const ms=["MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+
+        document.querySelectorAll('#container-plan .card-oa').forEach(f => {
+            const c=f.querySelector('.input-code').value, d=f.querySelector('.input-desc').value.trim()||"-", m=f.querySelector('.input-mes').value;
+            const sv=(cursoActual.real||[]).find(r=>r.codigo===c); const active=sv?sv.meses:[];
+            addFilaWeb(c,d,active,false);
+            tbP1.innerHTML+=`<tr><td style="text-align:center;"><b>${c}</b></td><td>${d}</td><td style="text-align:center;">${m}</td></tr>`;
+            let cells=""; ms.forEach(k=>cells+=`<td class="pdf-check">${active.includes(k)?'X':''}</td>`);
+            tbP2.innerHTML+=`<tr><td><b>${c}</b></td>${cells}</tr>`;
+            vis.add(c);
+        });
+
+        (cursoActual.real||[]).forEach(r=>{
+            if(!vis.has(r.codigo)){
+                addFilaWeb(r.codigo,"Objetivo Extra",r.meses,true);
+                let cells=""; ms.forEach(k=>cells+=`<td class="pdf-check">${r.meses.includes(k)?'X':''}</td>`);
+                tbP2.innerHTML+=`<tr><td><b>${r.codigo} (Extra)</b></td>${cells}</tr>`;
+            }
+        });
+
+        document.getElementById('pdf-docente').innerText=docenteNombre; document.getElementById('pdf-asignatura').innerText=cursoActual.nombre;
+        document.getElementById('pdf-nivel').innerText=cursoActual.nivel; document.getElementById('pdf-fecha-header').innerText=new Date().toLocaleDateString();
+    };
+
+    window.agregarFilaPlan = (c="OA1",d="",m="MAR") => { const t=document.getElementById('tpl-plan').content.cloneNode(true); t.querySelector('.input-code').value=c; t.querySelector('.input-desc').value=d; t.querySelector('.input-mes').value=m; document.getElementById('container-plan').appendChild(t); };
+    const addFilaWeb = (c,d,act,e) => {
+        let chk=""; ["MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"].forEach(m=>{ const k=act.includes(m)?"checked":""; chk+=`<td class="text-center"><input type="checkbox" class="form-check-input check-month no-print" data-mes="${m}" ${k}></td>`; });
+        const tr=document.createElement('tr'); tr.className="fila-cobertura"; tr.dataset.codigo=c;
+        tr.innerHTML=`<td><div class="d-flex align-items-center"><strong class="text-success me-2">${c}</strong><div>${e?'<span class="badge bg-warning text-dark me-1">Extra</span>':''}<small class="text-muted d-block lh-sm">${d.substring(0,60)}...</small></div></div></td>${chk}`;
+        document.getElementById('tbody-real').appendChild(tr);
+    };
+
+    window.guardarTodo = async () => {
+        if(!cursoActual)return;
+        const btn=event.target; const txt=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Guardando...';
+        try {
+            let nP=[]; document.querySelectorAll('#container-plan .card-oa').forEach(f=>{ nP.push({codigo:f.querySelector('.input-code').value, desc:f.querySelector('.input-desc').value.trim(), mes:f.querySelector('.input-mes').value}); });
+            let nR=[]; const trs=document.querySelectorAll('.fila-cobertura');
+            if(trs.length>0) trs.forEach(tr=>{ let m=[]; tr.querySelectorAll('input:checked').forEach(c=>m.push(c.dataset.mes)); nR.push({codigo:tr.dataset.codigo, meses:m, logrado:m.length>0, observaciones:[]}); });
+            else nR=cursoActual.real||[];
+            await updateDoc(doc(db,"cursos",cursoActual.id),{plan:nP, real:nR}); alert("✅ Guardado Exitoso");
+        } catch(e){ alert("Error: "+e.message); } finally { btn.disabled=false; btn.innerHTML=txt; }
+    };
+
+    window.imprimirReporte = () => { sincronizarCobertura(); window.print(); };
+
+    window.descargarPDFDirecto = () => {
+        if(!cursoActual)return; sincronizarCobertura();
+        const el=document.getElementById('pdf-content-area'); el.style.display='block';
+        const opt={ margin:0.3, filename:`Bitacora_${cursoActual.nombre}.pdf`, image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2,useCORS:true}, jsPDF:{unit:'in',format:'letter',orientation:'landscape'} };
+        html2pdf().set(opt).from(el).save().then(()=>{ el.style.display='none'; });
+    };
+
+    window.iniciarFlujoCorreo = () => {
+        window.descargarPDFDirecto();
+        setTimeout(()=>{ if(confirm("PDF descargado. ¿Abrir correo para adjuntar?")) { window.location.href=`mailto:utp@colegio.cl?subject=${encodeURIComponent("Bitacora: "+cursoActual.nombre)}&body=${encodeURIComponent("Adjunto reporte.\nAtte, "+docenteNombre)}`; } },1500);
+    };
+
+    window.borrarCard = (b) => b.closest('.card').remove(); 
+    window.agregarFilaExtra = () => { const c=prompt("Código Extra:"); if(c) addFilaWeb(c.toUpperCase(),"Extra",[],true); };
+    
+    document.addEventListener("DOMContentLoaded",()=>{ const s=document.querySelector('#tpl-plan').content.querySelector('.input-code'); s.innerHTML=""; for(let i=1;i<=30;i++) { let o=document.createElement("option"); o.value="OA"+i; o.innerText="OA "+i; s.appendChild(o); } ["OAA","OAT"].forEach(v=>{let o=document.createElement("option"); o.value=v; o.innerText=v; s.appendChild(o)}); });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

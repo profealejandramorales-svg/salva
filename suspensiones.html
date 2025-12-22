@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Suspensiones</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        
+        /* ESTILOS DE IMPRESIÓN */
+        @media print {
+            @page { 
+                size: Letter portrait; 
+                margin: 1.5cm; /* Margen un poco más amplio para documentos formales */
+            }
+            body * { visibility: hidden; }
+            .print-area, .print-area * { visibility: visible; }
+            .print-area {
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%;
+                font-family: 'Times New Roman', serif;
+                color: #000;
+            }
+            .no-print { display: none !important; }
+            
+            /* Forzar impresión de imágenes y fondos */
+            img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            
+            /* Ajustes de texto para impresión */
+            .print-text-lg { font-size: 14pt; font-weight: bold; }
+            .print-text-base { font-size: 11pt; line-height: 1.3; }
+        }
+
+        .logo-uploader { cursor: pointer; transition: all 0.3s ease; }
+        .logo-uploader:hover { opacity: 0.8; transform: scale(1.02); }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-8 flex flex-col items-center min-h-screen">
+    
+    <div id="input-area" class="w-full max-w-4xl bg-white p-6 md:p-8 rounded-xl shadow-lg border-t-4 border-blue-600 mb-8">
+        
+        <div class="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 flex items-center justify-between">
+            <div>
+                <p class="font-bold text-yellow-700">Configuración del Logo</p>
+                <p class="text-xs text-yellow-600">Si el logo no aparece abajo, cárgalo aquí (aparecerá en Comprobante y Carta).</p>
+            </div>
+            <label for="logo-input" class="cursor-pointer bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-semibold py-2 px-4 rounded inline-flex items-center text-sm transition shadow-sm">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                Cargar Logo
+            </label>
+            <input type="file" id="logo-input" accept="image/*" class="hidden">
+        </div>
+
+        <div class="flex flex-col items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Gestión de Suspensiones</h1>
+            <p class="text-sm text-gray-500 flex items-center gap-2">
+                <span id="connection-dot" class="w-2 h-2 rounded-full bg-green-500"></span>
+                Estado: <span id="user-id-display" class="font-mono text-blue-600">Sistema Local</span>
+            </p>
+        </div>
+
+        <div id="message-box" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md mb-4 shadow-sm"></div>
+        <div id="error-box" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm"></div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="md:col-span-2 bg-blue-50 p-5 rounded-lg border border-blue-100">
+                <h3 class="font-bold text-blue-900 mb-4 border-b border-blue-200 pb-2">Nueva Suspensión</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 text-xs font-bold mb-1 uppercase">Curso</label>
+                        <select id="course" class="shadow-sm border border-gray-300 rounded w-full py-2 px-3 text-gray-700 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">-- Selecciona un curso --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-xs font-bold mb-1 uppercase">Estudiante</label>
+                        <select id="student" class="shadow-sm border border-gray-300 rounded w-full py-2 px-3 text-gray-700 bg-white disabled:bg-gray-100 focus:ring-2 focus:ring-blue-500 outline-none" disabled>
+                            <option value="">-- Selecciona curso primero --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-xs font-bold mb-1 uppercase">Nombre Apoderado</label>
+                        <input type="text" id="parent-name" class="shadow-sm border border-gray-300 rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nombre completo">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-xs font-bold mb-1 uppercase">Fecha de Retorno</label>
+                        <input type="date" id="date" class="shadow-sm border border-gray-300 rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-gray-700 text-xs font-bold mb-1 uppercase">Motivo</label>
+                        <textarea id="reason" rows="2" class="shadow-sm border border-gray-300 rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Motivo de la suspensión..."></textarea>
+                    </div>
+                    <div class="md:col-span-2 flex gap-3 pt-2">
+                        <button id="generate-voucher" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex-1 transition transform active:scale-95">
+                            Emitir Comprobante
+                        </button>
+                        <button id="generate-commitment" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex-1 transition transform active:scale-95">
+                            Carta Compromiso
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="md:col-span-2 bg-gray-50 p-5 rounded-lg border border-gray-200 mt-2">
+                <h3 class="font-bold text-gray-700 mb-4 border-b border-gray-200 pb-2">Panel de Reportes</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                        <label class="block text-gray-500 text-xs font-bold mb-1">Mes</label>
+                        <input type="month" id="report-month" class="shadow-sm border rounded w-full py-2 px-3 text-gray-700 bg-white">
+                    </div>
+                    <button id="generate-monthly-report" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded shadow h-10 w-full transition hover:bg-teal-800">
+                        Generar Reporte
+                    </button>
+                    <div class="flex flex-col gap-2">
+                         <button id="show-ranking" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-1.5 px-4 rounded shadow text-sm w-full transition">Ranking Histórico</button>
+                         <button id="show-consolidated" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-1.5 px-4 rounded shadow text-sm w-full transition">Consolidado Diario</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 text-center border-t pt-4 w-full">
+            <p class="text-xs text-gray-400 font-medium">Desarrollado por ProfeAle</p>
+        </div>
+    </div>
+
+    <div id="result-container" class="w-full max-w-5xl bg-white p-8 rounded-xl shadow-2xl hidden mt-4 border-t-8 border-blue-600 relative mb-12">
+        <button id="close-result" class="no-print absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+
+        <div id="voucher-area" class="print-area hidden">
+            <div class="flex flex-col items-center mb-6 text-center">
+                <img id="voucher-logo" src="logo11_informe.jpg" alt="Logo Colegio" class="h-24 w-auto mb-2 mx-auto block object-contain" 
+                     onerror="this.src='';">
+                
+                <h2 class="print-text-lg uppercase font-serif tracking-wide mt-2">Escuela Agrícola Sagrados Corazones</h2>
+                <h3 class="text-xl font-bold uppercase mt-2 border-b-2 border-black inline-block px-4 pb-1">Comprobante de Suspensión</h3>
+            </div>
+
+            <div class="px-4 print-text-base font-serif">
+                <p class="mb-6 text-justify">Por medio del presente, se informa la suspensión del estudiante detallado a continuación:</p>
+
+                <div class="border border-black mb-8">
+                    <div class="grid grid-cols-4 border-b border-black">
+                        <div class="col-span-1 bg-gray-100 p-2 font-bold border-r border-black pl-3 flex items-center">Estudiante:</div>
+                        <div class="col-span-3 p-2 pl-3 font-bold uppercase flex items-center" id="voucher-student"></div>
+                    </div>
+                    <div class="grid grid-cols-4 border-b border-black">
+                        <div class="col-span-1 bg-gray-100 p-2 font-bold border-r border-black pl-3 flex items-center">Curso:</div>
+                        <div class="col-span-3 p-2 pl-3 flex items-center" id="voucher-course"></div>
+                    </div>
+                     <div class="grid grid-cols-4 border-b border-black">
+                        <div class="col-span-1 bg-gray-100 p-2 font-bold border-r border-black pl-3 flex items-center">Apoderado:</div>
+                        <div class="col-span-3 p-2 pl-3 uppercase flex items-center" id="voucher-parent"></div>
+                    </div>
+                    <div class="grid grid-cols-4">
+                        <div class="col-span-1 bg-gray-100 p-2 font-bold border-r border-black pl-3 flex items-center">Reintegro:</div>
+                        <div class="col-span-3 p-2 pl-3 flex items-center">
+                            <span id="voucher-date" class="font-bold mr-3"></span> 
+                            <span class="text-sm">(Sanción: <span id="voucher-suspension-days" class="font-bold"></span> días hábiles)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-12">
+                    <p class="font-bold mb-2">Motivo de la medida:</p>
+                    <div class="border border-black p-4 min-h-[80px] italic bg-gray-50 leading-relaxed" id="voucher-reason"></div>
+                </div>
+            </div>
+
+            <div class="mt-16 flex justify-between px-10 align-bottom font-serif">
+                <div class="text-center w-5/12">
+                    <div class="border-b border-black mb-2"></div>
+                    <p class="font-bold text-sm">FIRMA APODERADO</p>
+                    <p class="text-xs italic">Toma de conocimiento</p>
+                </div>
+                <div class="text-center w-5/12">
+                     <div class="border-b border-black mb-2"></div>
+                    <p class="font-bold text-sm">INSPECTORÍA GENERAL</p>
+                    <p class="text-xs italic" id="voucher-issue-date"></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="commitment-area" class="print-area hidden font-serif">
+             <div class="text-center mb-8">
+                 <img id="commit-logo" src="logo11_informe.jpg" alt="Logo" class="h-24 w-auto mx-auto mb-2 object-contain"
+                      onerror="this.style.display='none';">
+                <h3 class="font-bold text-base mt-2 uppercase tracking-wide">Escuela Agrícola Sagrados Corazones</h3>
+                <h2 class="text-2xl font-bold underline mt-2">CARTA DE COMPROMISO CONDUCTUAL</h2>
+            </div>
+            
+            <div class="text-justify leading-relaxed text-lg space-y-6 px-8">
+                <p>En <strong>Villa Alegre</strong>, con fecha <span id="commit-date-text"></span>.</p>
+                <p>Yo, <strong id="commit-parent" class="uppercase border-b border-black px-1"></strong>, apoderado(a) del estudiante <strong id="commit-student" class="uppercase border-b border-black px-1"></strong> del curso <strong id="commit-course"></strong>, tomo conocimiento de la falta:</p>
+                <div class="bg-gray-50 p-6 border-l-4 border-gray-400 italic rounded my-4 text-base">"<span id="commit-reason"></span>"</div>
+                <p><strong>ME COMPROMETO</strong> solemnemente a:</p>
+                <ul class="list-disc pl-10 space-y-2">
+                    <li>Supervisar el cumplimiento de las sanciones establecidas.</li>
+                    <li>Mantener comunicación fluida con el establecimiento.</li>
+                    <li>Apoyar las medidas pedagógicas para mejorar la conducta de mi pupilo.</li>
+                </ul>
+            </div>
+            
+            <div class="mt-24 flex justify-between px-16">
+                <div class="text-center w-5/12 border-t border-black pt-2"><p class="font-bold">Firma Apoderado</p></div>
+                <div class="text-center w-5/12 border-t border-black pt-2"><p class="font-bold">Firma Inspectoría</p></div>
+            </div>
+        </div>
+
+        <div id="monthly-report-area" class="print-area hidden">
+            <h2 class="text-xl font-bold text-gray-800 mb-2">Informe Mensual de Suspensiones</h2>
+            <p class="text-base text-blue-800 font-bold mb-4" id="monthly-report-title"></p>
+            <div id="monthly-report-content" class="overflow-x-auto"></div>
+        </div>
+
+        <div id="ranking-area" class="print-area hidden">
+            <h2 class="text-xl font-bold text-center mb-4 text-blue-900">Ranking Histórico de Reincidencia</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-xs border bg-white">
+                    <thead class="bg-gray-800 text-white">
+                        <tr><th class="py-2 px-2 text-center">#</th><th class="py-2 px-2 text-left">Estudiante</th><th class="py-2 px-2 text-center">Total</th><th class="py-2 px-2 text-left">Historial</th></tr>
+                    </thead>
+                    <tbody id="ranking-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="consolidated-area" class="print-area hidden">
+            <h2 class="text-xl font-bold text-center mb-4">Consolidado Diario - <span id="consolidated-date"></span></h2>
+            <div id="consolidated-list" class="space-y-2"></div>
+        </div>
+
+        <div class="flex flex-wrap justify-center mt-10 gap-4 no-print border-t pt-6">
+            <button id="return-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition">Volver</button>
+            <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-8 rounded-lg flex items-center gap-2 transition hover:scale-105 shadow-md">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z" /></svg>
+                Imprimir
+            </button>
+            <button id="clear-records-btn" class="bg-red-100 text-red-700 font-bold py-2 px-4 rounded-lg ml-auto border border-red-300 hover:bg-red-200 transition">Borrar HOY</button>
+        </div>
+
+        <div class="mt-8 text-center border-t pt-4 w-full no-print">
+            <p class="text-xs text-gray-400 font-medium">Desarrollado por ProfeAle</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // CONFIGURACIÓN FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyBnSMVCH0yyYUWk5z54kTIPTrWkyoeWs-I",
+            authDomain: "suspenciones-40d0c.firebaseapp.com",
+            projectId: "suspenciones-40d0c",
+            storageBucket: "suspenciones-40d0c.firebasestorage.app",
+            messagingSenderId: "853418739042",
+            appId: "1:853418739042:web:d051befb99cd2acdd4583b",
+            measurementId: "G-L00J7XN6Y1"
+        };
+
+        const COLLECTION_NAME = "suspensiones"; 
+
+        const schoolData = {
+            'Primero Medio A': ['ALBURQUENQUE DEL GRECCO EMILYA ANTONIA', 'ANABALÓN BELTRÁN BENJAMÍN NICOLÁS', 'CONTRERAS SALGADO HADEEY ALEJANDRA', 'FERRADA ALBORNOZ AGUSTÍN ALEXIS', 'HERNÁNDEZ FERNÁNDEZ DHARIEN ALEXSANDER', 'IBÁÑEZ GONZÁLEZ FERNANDA MAGDALENA', 'LAGOS LASTRA ALEXANDRA DANAE', 'LÓPEZ LÓPEZ LUCIANO ANTONIO', 'MALDONADO FLORES ANTONELLA BELÉN', 'MARIN MARÍN IGNACIO ANTONIO', 'MONTECINO DÍAZ VALESKA BELÉN', 'MUÑOZ CONTRERAS LUIS GABRIEL', 'MUÑOZ LUNA ROGER JOEL', 'NAVARRO VILLANUEVA KARLA PAZ', 'ORELLANA ARRIAGADA SEBASTIÁN ANDRÉS', 'QUEZADA NARANJO FELIPE ALONSO', 'QUINTEROS VERGARA FERNANDA FLORENCIA', 'RAMÍREZ VILLALOBOS DUVAN EMILIO', 'SANTANDER LÓPEZ MARÍA JOSÉ', 'TAPIA CASTILLA JEANFRANCO PATRICK', 'URBINA CÁCERES FRANCHESCA POULETTE', 'VÁSQUEZ ZALDUENDO AMANDA ISABEL', 'ZABALAGA COFRÉ DAMIÁN ANDRÉS', 'BAEZ DONOSO LUKAS ALFONSO', 'MESA DÍAZ GONZALO IGNACIO', 'BAREA SALGADO SERGIO ALEXANDER'],
+            'Primero Medio B': ['ARAYA DOMÍNGUEZ ALEX FABIÁN', 'BRAVO MENARES ALEX JOHAN', 'CARRASCO LEIVA BENJAMÍN IGNACIO', 'CARVAJAL URRUTIA CONSTANZA PRISILA (DANIEL)', 'ENCINA PIZARRO DIEGO BENJAMÍN ALEXANDER', 'FAÚNDEZ NORAMBUENA ALEJANDRO ANTONIO', 'JARAMILLO VILLAR EMILIO SCOTT', 'LÓPEZ VILLAR MARTÍN ALONSO', 'MIRANDA MUÑOZ ALEXANDRA JAVIERA', 'MUÑOZ TRONCOSO HÉCTOR ANTONIO', 'OLIVARES VALENZUELA ALONSO IGNACIO', 'OLIVARES VALENZUELA ANTONELLA DANAE IGNACIA', 'ORELLANA GARRIDO MATÍAS LEANDRO', 'PUNOY MEDEL MILLARAY ANGÉLICA', 'QUIÑENAO MUÑOZ CRISTÓBAL PATRICIO', 'RIQUELME COLOMA DALIA CONSTANZA', 'SALGADO ROJAS VICENTE MOISÉS', 'SANDOVAL CERPA VICENTE ESTEBAN', 'SOTO NARANJO CHRISTOPHER', 'VEKARIC VERDEJO MARTÍN'],
+            'Segundo Medio A': ['AHUMADA ROJAS TRINIDAD BELÉN', 'ESPINOSA TORRES FERNANDA ELENA', 'ESPINOZA PEÑALILLO BRAYAN JESÚS', 'GONZÁLEZ SALAZAR EMILIA CATALINA', 'MEDEL OJEDA LEÓN IGNACIO', 'MORALES REIMÁN ALFONSO TOMÁS', 'PEREIRA HORMAZÁBAL MAXIMILIANO EDUARDO', 'PINTO TOBAR JORDÁN AMARO', 'RECABAL YÁÑEZ KEVIN ANDRÉS', 'RIQUELME CASTILLO MATÍAS EDUARDO ANTONIO', 'RIVERA ABARZA CONSTANZA VICTORIA', 'SANTIS CASSEUS TEIVA SCARLETT', 'SOBARZO YÉVENES KATHERINNE ALEXIA BELÉN', 'TOLEDO ALBORNOZ ANTONELLA INES', 'VENEGAS ARRIAGADA ANTONIA EDITH', 'VIELMA ZABALAGA JOAN MANUEL', 'MEZA COLIMÁN ANGEL BLAS', 'PALMA ORELLANA ANTONELLA FRANCISCA'],
+            'Segundo Medio B': ['ARAYA DOMÍNGUEZ ALEX FABIÁN', 'BRAVO MENARES ALEX JOHAN', 'CARRASCO LEIVA BENJAMÍN IGNACIO', 'CARVAJAL URRUTIA CONSTANZA PRISILA (DANIEL)', 'ENCINA PIZARRO DIEGO BENJAMÍN ALEXANDER', 'FAÚNDEZ NORAMBUENA ALEJANDRO ANTONIO', 'JARAMILLO VILLAR EMILIO SCOTT', 'LÓPEZ VILLAR MARTÍN ALONSO', 'MIRANDA MUÑOZ ALEXANDRA JAVIERA', 'MUÑOZ TRONCOSO HÉCTOR ANTONIO', 'OLIVARES VALENZUELA ALONSO IGNACIO', 'OLIVARES VALENZUELA ANTONELLA DANAE IGNACIA', 'ORELLANA GARRIDO MATÍAS LEANDRO', 'PUNOY MEDEL MILLARAY ANGÉLICA', 'QUIÑENAO MUÑOZ CRISTÓBAL PATRICIO', 'RIQUELME COLOMA DALIA CONSTANZA', 'SALGADO ROJAS VICENTE MOISÉS', 'SANDOVAL CERPA VICENTE ESTEBAN', 'SOTO NARANJO CHRISTOPHER', 'VEKARIC VERDEJO MARTÍN'],
+            'Tercero Medio A': ['ALCÁNTAR GARCÍA MARTINA ALEJANDRA', 'BAHAMONDE MUÑOZ ARIEL LEON', 'CAMPOS MUÑOZ CRISTOPHER JESÚS', 'CANCINO ORÓSTICA VICENTE GASPAR', 'CARRASCO GONZÁLEZ CAMILA ANDREA', 'COFRÉ CASTILLO ANTONIO ANDRÉS', 'CONTRERAS VENEGAS BELÉN ALEJANDRA', 'GALDAMES VERGARA FELIPE ESTEBAN', 'GARCÍA GONZÁLEZ SANTIAGO HUMBERTO', 'GONZÁLEZ AMIGO FRANCISCA IGNACIA', 'GONZÁLEZ SALAZAR JOAQUÍN ALONSO', 'GUTIÉRREZ GUTIÉRREZ ANGEL MARTÍN', 'JARA SEPÚLVEDA KATRINA DARINKA', 'MARTÍNEZ LIZANA AARON ALEJANDRO', 'MEZA CARRASCO BENJAMÍN INTI', 'MIÑO GONZALEZ CATALINA ANDREA', 'MORAGA PACHECO RENATO IGNACIO', 'PÉREZ CORÓN MANUEL IGNACIO', 'SAMANIEGO CORTEZ JAKSON FERGIE', 'SEPÚLVEDA SALAZAR SOFÍA ANTONIA', 'TAPIA ACUÑA GABRIEL ANTONIO', 'VEGA VIVANCO CRISTÓBAL ANTONIO', 'VERA NAVARRETE DANIELA ELIZABETH', 'VILLALOBOS ARAVENA KARINA ANGELINA', 'VILLALOBOS VILLALOBOS SAMIR LUCIAN JESÚS', 'HERNÁNDEZ SEPÚLVEDA VICENTE ALEJANDRO', 'TORREALBA MOYA FLORVELIS DE LOS ANGELES', 'CARO URRUTIA CONSUELO ANTONIA', 'LOBOS CÁCERES ANTONIA PAZ'],
+            'Tercero Medio C': ['ARELLANO ACUÑA MARTÍN ANTONIO', 'AROS ÁVILA DAYANA IGNACIA', 'CABRERA COLOMBINO MARÍA GRACIA', 'FUENTES CARRASCO YARIXA ALEJANDRA', 'GÓMEZ CANCINO DANIELA ALEJANDRA', 'GUTIÉRREZ CARRIÓN MILLARAY CAROLINA', 'HONORATO TAPIA GLORIA JAVIERA', 'LARA RIVERA BENJAMÍN ESTEBAN', 'PALACIOS SOTO JOSÉ TOMÁS', 'PEZO SANTANDER JOSÉ CRISTÓBAL', 'ROCHA ROJAS JOSÉ PABLO WILLIAMS', 'ROJAS YÉVENES FABIANA ISIDORA', 'SÁNCHEZ PAREJA ANDY ANTONIO', 'SANTANDER LÓPEZ SIMÓN ESTEBAN', 'TRONCOSO LIZAMA SIOMARA IGNACIA', 'WARNKEN ROJAS LUCIANA BERNABELA', 'DE LA HOZ VALENZUELA FRANCO SEBASTIÁN', 'COLLAO MEDINA ANAÍS VALENTINA'],
+            'Cuarto Medio A': ['AGURTO CRESPO HOMERO ALEXANDER', 'ANDIA DE LA HOZ CATALINA BELEN', 'FUENTES GONZÁLEZ ESTEBAN ALEXANDER', 'GARCÍA ROJAS SOFÍA ELENA', 'GODOY HERRERA ANTONELLA CONSTANZA PAZ', 'GONZÁLEZ CASTRO KEVIN ALEJANDRO', 'MARCHANT MORÁN PÍA IGNACIA', 'QUINTANA SAN MARTÍN ALAN VICENTE', 'RECABAL YÁÑEZ CRISTOFER BASTIÁN', 'ROJAS GONZÁLEZ GABRIEL ANTONIO', 'TOLEDO MUÑOZ ESPERANZA BELÉN', 'YÁÑEZ GONZÁLEZ FRANCISCA ALEJANDRA'],
+            'Cuarto Medio C': ['Josefa Morales', 'Benjamín Pérez', 'Constanza Varela'],
+        };
+
+        let db, auth;
+        let courseSelect, studentSelect, parentInput, dateInput, reasonInput, logoInput;
+        let generateBtn, showConsolidatedBtn, showRankingBtn, generateCommitmentBtn, returnBtn, clearRecordsBtn, generateMonthlyReportBtn, closeResultBtn;
+        let voucherArea, consolidatedArea, rankingArea, commitmentArea, monthlyReportArea, inputArea, resultContainer;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            courseSelect = document.getElementById('course');
+            studentSelect = document.getElementById('student');
+            parentInput = document.getElementById('parent-name');
+            dateInput = document.getElementById('date');
+            reasonInput = document.getElementById('reason');
+            logoInput = document.getElementById('logo-input');
+            
+            generateBtn = document.getElementById('generate-voucher');
+            showConsolidatedBtn = document.getElementById('show-consolidated');
+            showRankingBtn = document.getElementById('show-ranking');
+            generateCommitmentBtn = document.getElementById('generate-commitment');
+            generateMonthlyReportBtn = document.getElementById('generate-monthly-report');
+            returnBtn = document.getElementById('return-btn');
+            closeResultBtn = document.getElementById('close-result');
+            clearRecordsBtn = document.getElementById('clear-records-btn');
+            
+            voucherArea = document.getElementById('voucher-area');
+            consolidatedArea = document.getElementById('consolidated-area');
+            rankingArea = document.getElementById('ranking-area');
+            commitmentArea = document.getElementById('commitment-area');
+            monthlyReportArea = document.getElementById('monthly-report-area');
+            inputArea = document.getElementById('input-area');
+            resultContainer = document.getElementById('result-container');
+
+            // --- LÓGICA DE CARGA DE LOGO MEJORADA ---
+            logoInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const imgData = event.target.result;
+                        
+                        // Actualizar TODOS los logos y forzar su visualización
+                        const voucherLogo = document.getElementById('voucher-logo');
+                        voucherLogo.src = imgData;
+                        voucherLogo.style.display = 'block'; // Asegurar que se vea
+
+                        const commitLogo = document.getElementById('commit-logo');
+                        commitLogo.src = imgData;
+                        commitLogo.style.display = 'block'; // Asegurar que se vea
+                        
+                        showMessage("¡Logo cargado exitosamente! Ahora aparecerá en ambos documentos.", 'info');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            generateBtn.addEventListener('click', generateVoucher);
+            showConsolidatedBtn.addEventListener('click', showConsolidated);
+            showRankingBtn.addEventListener('click', showHistoryRanking);
+            generateCommitmentBtn.addEventListener('click', generateCommitmentLetter);
+            generateMonthlyReportBtn.addEventListener('click', generateMonthlyReport);
+            returnBtn.addEventListener('click', returnToForm);
+            closeResultBtn.addEventListener('click', returnToForm);
+            clearRecordsBtn.addEventListener('click', clearTodayRecords);
+
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today; 
+            document.getElementById('report-month').value = today.slice(0, 7);
+
+            populateDropdowns();
+            initializeFirebase();
+        });
+
+        function showMessage(msg, type = 'info') {
+            const box = type === 'info' ? document.getElementById('message-box') : document.getElementById('error-box');
+            const other = type === 'info' ? document.getElementById('error-box') : document.getElementById('message-box');
+            other.classList.add('hidden');
+            box.textContent = msg;
+            box.classList.remove('hidden');
+            setTimeout(() => box.classList.add('hidden'), 5000);
+        }
+
+        function showResultSection(sectionId) {
+            inputArea.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+            [voucherArea, consolidatedArea, rankingArea, commitmentArea, monthlyReportArea].forEach(el => {
+                el.classList.add('hidden');
+                el.classList.remove('print-area');
+            });
+            const target = document.getElementById(sectionId);
+            target.classList.remove('hidden');
+            target.classList.add('print-area');
+        }
+
+        async function initializeFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                await signInAnonymously(auth);
+                const user = auth.currentUser;
+                document.getElementById('user-id-display').textContent = user ? "Online" : "Desconectado";
+                document.getElementById('connection-dot').classList.remove('bg-yellow-500');
+                document.getElementById('connection-dot').classList.add('bg-green-500');
+                enableButtons();
+            } catch (e) {
+                console.error(e);
+                showMessage("Error de conexión con Firebase", 'error');
+                document.getElementById('user-id-display').textContent = "Offline";
+                document.getElementById('connection-dot').classList.add('bg-red-500');
+            }
+        }
+
+        function populateDropdowns() {
+            for (const course in schoolData) {
+                const opt = document.createElement('option');
+                opt.value = course;
+                opt.textContent = course;
+                courseSelect.appendChild(opt);
+            }
+            courseSelect.addEventListener('change', () => {
+                const sel = courseSelect.value;
+                studentSelect.innerHTML = '<option value="">-- Selecciona estudiante --</option>';
+                studentSelect.disabled = !sel;
+                if (sel && schoolData[sel]) {
+                    schoolData[sel].forEach(st => {
+                        const opt = document.createElement('option');
+                        opt.value = st;
+                        opt.textContent = st;
+                        studentSelect.appendChild(opt);
+                    });
+                }
+            });
+        }
+
+        function enableButtons() {
+            [generateBtn, showConsolidatedBtn, showRankingBtn, generateCommitmentBtn, generateMonthlyReportBtn].forEach(b => b.disabled = false);
+        }
+
+        function calculateSuspensionDays(startDate, endDate) {
+            const start = new Date(startDate + 'T00:00:00');
+            const end = new Date(endDate + 'T00:00:00');
+            let count = 0;
+            let current = new Date(start);
+            current.setDate(current.getDate() + 1);
+            while (current < end) {
+                const day = current.getDay();
+                if (day !== 0 && day !== 6) count++;
+                current.setDate(current.getDate() + 1);
+            }
+            return count <= 0 ? 0 : count;
+        }
+
+        async function generateVoucher() {
+            const course = courseSelect.value;
+            const student = studentSelect.value;
+            const parent = parentInput.value.trim() || "No registrado";
+            const date = dateInput.value;
+            const reason = reasonInput.value.trim();
+            if (!course || !student || !date || !reason) return showMessage("Faltan datos", 'error');
+
+            generateBtn.disabled = true;
+            generateBtn.textContent = "Guardando en Nube...";
+
+            try {
+                const issueDate = new Date().toISOString();
+                const days = calculateSuspensionDays(issueDate.split('T')[0], date);
+
+                await addDoc(collection(db, COLLECTION_NAME), {
+                    course, studentName: student, parentName: parent,
+                    returnDate: date, reason, issueDate, suspensionDays: days, timestamp: issueDate
+                });
+
+                document.getElementById('voucher-student').textContent = student;
+                document.getElementById('voucher-course').textContent = course;
+                document.getElementById('voucher-parent').textContent = parent;
+                document.getElementById('voucher-reason').textContent = reason;
+                const [y, m, d] = date.split('-');
+                document.getElementById('voucher-date').textContent = new Date(y, m-1, d).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+                document.getElementById('voucher-suspension-days').textContent = days + (days === 1 ? ' día hábil' : ' días hábiles');
+                document.getElementById('voucher-issue-date').textContent = new Date().toLocaleDateString('es-ES');
+
+                showResultSection('voucher-area');
+                showMessage("✅ Guardado en la nube");
+            } catch (e) {
+                console.error("Error:", e);
+                showMessage("Error de permisos. Revisa las reglas en Firebase Console.", 'error');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.textContent = "Emitir Comprobante";
+            }
+        }
+
+        function generateCommitmentLetter() {
+            const student = studentSelect.value;
+            const course = courseSelect.value;
+            const reason = reasonInput.value;
+            const parent = parentInput.value;
+            if(!student || !course || !reason || !parent) return showMessage("Completa todos los campos", 'error');
+
+            document.getElementById('commit-date-text').textContent = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('commit-parent').textContent = parent;
+            document.getElementById('commit-student').textContent = student;
+            document.getElementById('commit-course').textContent = course;
+            document.getElementById('commit-reason').textContent = reason;
+            showResultSection('commitment-area');
+        }
+
+        async function generateMonthlyReport() {
+            const monthVal = document.getElementById('report-month').value; 
+            if (!monthVal) return showMessage("Selecciona un mes", 'error');
+            generateMonthlyReportBtn.disabled = true;
+            generateMonthlyReportBtn.textContent = "Cargando...";
+
+            try {
+                const startDate = monthVal + "-01";
+                const [year, month] = monthVal.split('-');
+                const lastDay = new Date(year, month, 0).getDate();
+                const endDate = `${monthVal}-${lastDay}T23:59:59`;
+                const q = query(collection(db, COLLECTION_NAME), where('issueDate', '>=', startDate), where('issueDate', '<=', endDate));
+                const snapshot = await getDocs(q);
+
+                if (snapshot.empty) {
+                    showMessage("Sin registros en este mes.");
+                    generateMonthlyReportBtn.disabled = false;
+                    generateMonthlyReportBtn.textContent = "Generar Reporte Mensual";
+                    return;
+                }
+
+                const reportData = {}; 
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    if (!reportData[d.course]) reportData[d.course] = { students: {}, total: 0 };
+                    if (!reportData[d.course].students[d.studentName]) reportData[d.course].students[d.studentName] = [];
+                    reportData[d.course].students[d.studentName].push(d);
+                    reportData[d.course].total++;
+                });
+
+                const sortedCourses = Object.keys(reportData).sort();
+                let html = '<table class="w-full text-sm border-collapse border border-gray-300"><thead><tr class="bg-blue-900 text-white"><th class="p-2 border">Curso / Estudiante</th><th class="p-2 border text-center w-24">Cant.</th><th class="p-2 border">Detalle</th></tr></thead><tbody>';
+
+                sortedCourses.forEach(course => {
+                    const cData = reportData[course];
+                    html += `<tr class="bg-gray-200"><td class="p-2 border font-bold">${course}</td><td class="p-2 border text-center font-bold">${cData.total}</td><td class="p-2 border italic text-xs">Total Curso</td></tr>`;
+                    Object.entries(cData.students).sort((a,b) => b[1].length - a[1].length).forEach(([stName, evts]) => {
+                        const style = evts.length > 1 ? 'font-bold text-red-600' : 'text-gray-700';
+                        let details = '<ul class="list-disc pl-4 text-xs">';
+                        evts.forEach(e => details += `<li>${e.issueDate.split('T')[0]}: ${e.reason}</li>`);
+                        details += '</ul>';
+                        html += `<tr class="hover:bg-gray-50"><td class="p-2 border pl-6 ${style}">${stName}</td><td class="p-2 border text-center ${evts.length>1?'bg-red-50 font-bold':''}">${evts.length}</td><td class="p-2 border">${details}</td></tr>`;
+                    });
+                });
+                html += '</tbody></table>';
+                document.getElementById('monthly-report-content').innerHTML = html;
+                document.getElementById('monthly-report-title').textContent = `Período: ${month}/${year}`;
+                showResultSection('monthly-report-area');
+            } catch (e) { console.error(e); showMessage("Error reporte", 'error'); } 
+            finally { generateMonthlyReportBtn.disabled = false; generateMonthlyReportBtn.textContent = "Generar Reporte Mensual"; }
+        }
+
+        async function showConsolidated() {
+            showConsolidatedBtn.disabled = true;
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const q = query(collection(db, COLLECTION_NAME), where('issueDate', '>=', today), where('issueDate', '<=', today + 'T23:59:59'));
+                const snapshot = await getDocs(q);
+                const list = document.getElementById('consolidated-list');
+                list.innerHTML = '';
+                document.getElementById('consolidated-date').textContent = new Date().toLocaleDateString('es-ES');
+                if (snapshot.empty) list.innerHTML = '<p class="text-center italic text-gray-500">Sin registros hoy.</p>';
+                else {
+                    snapshot.forEach(doc => {
+                        const d = doc.data();
+                        list.innerHTML += `<div class="bg-white p-4 rounded border"><p><strong>${d.studentName}</strong> (${d.course})</p><p class="text-sm text-gray-600">Apoderado: ${d.parentName}</p><p class="text-sm">Motivo: ${d.reason}</p></div>`;
+                    });
+                }
+                showResultSection('consolidated-area');
+            } catch (e) { showMessage("Error consolidado", 'error'); } finally { showConsolidatedBtn.disabled = false; }
+        }
+
+        async function showHistoryRanking() {
+            showRankingBtn.disabled = true;
+            try {
+                const snapshot = await getDocs(collection(db, COLLECTION_NAME));
+                const stats = {};
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    if (!stats[d.studentName]) stats[d.studentName] = { count: 0, course: d.course, events: [] };
+                    stats[d.studentName].count++;
+                    stats[d.studentName].events.push(d.reason);
+                });
+                const ranking = Object.entries(stats).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.count - a.count);
+                const tbody = document.getElementById('ranking-table-body');
+                tbody.innerHTML = '';
+                ranking.forEach((st, idx) => {
+                    tbody.innerHTML += `<tr class="${st.count > 2 ? 'bg-red-50' : ''}"><td class="border p-2 text-center">${idx+1}</td><td class="border p-2 font-bold">${st.name} <span class="text-xs font-normal block text-gray-500">${st.course}</span></td><td class="border p-2 text-center font-bold text-lg text-blue-800">${st.count}</td><td class="border p-2 text-xs">${st.events.join('; ')}</td></tr>`;
+                });
+                showResultSection('ranking-area');
+            } catch (e) { showMessage("Error ranking", 'error'); } finally { showRankingBtn.disabled = false; }
+        }
+
+        async function clearTodayRecords() {
+            if(!confirm("¿Borrar registros de HOY de la nube?")) return;
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const q = query(collection(db, COLLECTION_NAME), where('issueDate', '>=', today), where('issueDate', '<=', today + 'T23:59:59'));
+                const snaps = await getDocs(q);
+                const proms = [];
+                snaps.forEach(d => proms.push(deleteDoc(d.ref)));
+                await Promise.all(proms);
+                showMessage("Registros borrados");
+                returnToForm();
+            } catch(e) { showMessage("Error borrando", 'error'); }
+        }
+
+        function returnToForm() {
+            inputArea.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

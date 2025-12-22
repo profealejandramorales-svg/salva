@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salva el Semestre - ProfeAle</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- ICONOS ---
+        const IconGraduation = () => <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-2 opacity-90"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>;
+        const IconRotate = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"/><path d="M3 3v9h9"/></svg>;
+        const IconCalculator = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>;
+        const IconActivity = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>;
+        const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
+        const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
+        const IconAlert = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mb-2 opacity-50"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>;
+        const IconTrophy = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>;
+        const IconList = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>;
+
+        function App() {
+            const [activeTab, setActiveTab] = useState('calculator');
+            const [targetGrade, setTargetGrade] = useState(4.0);
+            
+            // Estado Calculadora
+            const [grades, setGrades] = useState([{ id: 1, value: '' }]);
+            const [currentAverage, setCurrentAverage] = useState(0); 
+            const [result, setResult] = useState(null);
+            
+            // Estado Pánico
+            const [simulatedGrade, setSimulatedGrade] = useState(4.0);
+            const [projectedAverage, setProjectedAverage] = useState(0);
+            
+            // Estado Anual (Corregido para edición libre)
+            const [semester1Avg, setSemester1Avg] = useState('');
+            const [semester2Avg, setSemester2Avg] = useState(''); // Estado independiente
+            const [projectedAnnual, setProjectedAnnual] = useState(null);
+            const [otherReds, setOtherReds] = useState(0);
+            const [generalAvgInput, setGeneralAvgInput] = useState('');
+            const [verdict, setVerdict] = useState(null);
+
+            // Estado Promoción
+            const [subjects, setSubjects] = useState([
+                { id: 1, name: 'Matemáticas', avg: '', gradeCount: 5 }, 
+                { id: 2, name: 'Lenguaje', avg: '', gradeCount: 5 },
+                { id: 3, name: 'Historia', avg: '', gradeCount: 5 },
+                { id: 4, name: 'Ciencias', avg: '', gradeCount: 5 },
+            ]);
+            const [promoStatus, setPromoStatus] = useState(null);
+
+            // Escala
+            const isScale100 = targetGrade > 10;
+            const maxGrade = isScale100 ? 70 : 7.0;
+            const minGrade = isScale100 ? 10 : 1.0;
+            const step = isScale100 ? 5 : 0.1;
+
+            // Efectos
+            useEffect(() => calculate(), [grades, targetGrade, simulatedGrade]);
+            
+            // Sincronizar calculadora -> anual (solo si hay datos nuevos)
+            useEffect(() => {
+                if (currentAverage > 0) {
+                    setSemester2Avg(currentAverage);
+                }
+            }, [currentAverage]);
+
+            // Calcular situación anual cada vez que cambien los promedios
+            useEffect(() => calculateAnnualAndVerdict(), [semester1Avg, semester2Avg, otherReds, generalAvgInput]);
+            
+            useEffect(() => calculatePromotion(), [subjects]);
+
+            // Handlers
+            const addGradeRow = () => {
+                const newId = grades.length > 0 ? Math.max(...grades.map(g => g.id)) + 1 : 1;
+                setGrades([...grades, { id: newId, value: '' }]);
+            };
+            const removeGradeRow = (id) => setGrades(grades.filter(g => g.id !== id));
+            const updateGrade = (id, value) => {
+                const newGrades = grades.map(g => (g.id === id ? { ...g, value: value } : g));
+                setGrades(newGrades);
+            };
+
+            const addSubject = () => {
+                const newId = subjects.length > 0 ? Math.max(...subjects.map(s => s.id)) + 1 : 1;
+                setSubjects([...subjects, { id: newId, name: '', avg: '', gradeCount: 5 }]);
+            };
+            const removeSubject = (id) => setSubjects(subjects.filter(s => s.id !== id));
+            const updateSubject = (id, field, value) => {
+                const newSubs = subjects.map(s => (s.id === id ? { ...s, [field]: value } : s));
+                setSubjects(newSubs);
+            };
+
+            const calculate = () => {
+                let sumVal = 0, count = 0;
+                grades.forEach(g => {
+                    const val = parseFloat(g.value);
+                    if (!isNaN(val)) { sumVal += val; count++; }
+                });
+                const avg = count > 0 ? (sumVal / count).toFixed(2) : 0;
+                setCurrentAverage(avg);
+
+                const totalItems = count + 1;
+                const needed = (targetGrade * totalItems) - sumVal;
+                
+                if (count === 0 && grades[0].value === '') {
+                    setResult({ type: 'neutral', msg: 'Ingresa tus notas actuales.' });
+                } else {
+                    const neededRounded = needed.toFixed(1); 
+                    if (needed > maxGrade) setResult({ type: 'impossible', val: neededRounded, msg: `Difícil... necesitas más de ${maxGrade}` });
+                    else if (needed < minGrade) setResult({ type: 'success', val: neededRounded, msg: '¡Ya pasaste! Te sobra nota.' });
+                    else setResult({ type: 'normal', val: neededRounded, msg: 'Esta es la nota que necesitas.' });
+                }
+
+                const simVal = parseFloat(simulatedGrade);
+                const projAvg = (sumVal + simVal) / (count + 1);
+                setProjectedAverage(isNaN(projAvg) ? 0 : projAvg.toFixed(2));
+            };
+
+            const calculateAnnualAndVerdict = () => {
+                let currentAnnual = null;
+                const s1 = parseFloat(semester1Avg);
+                const s2 = parseFloat(semester2Avg);
+                
+                // Calculamos solo si ambos son números válidos
+                if (!isNaN(s1) && !isNaN(s2) && s1 > 0 && s2 > 0) {
+                    currentAnnual = parseFloat(((s1 + s2) / 2).toFixed(2));
+                    setProjectedAnnual(currentAnnual);
+                } else {
+                    setProjectedAnnual(null);
+                    setVerdict(null);
+                    return;
+                }
+
+                const genAvg = generalAvgInput !== '' ? parseFloat(generalAvgInput) : currentAnnual;
+                const currentIsRed = currentAnnual < 4.0;
+                const totalReds = otherReds + (currentIsRed ? 1 : 0);
+
+                let passed = false;
+                let reason = "";
+
+                if (totalReds === 0) {
+                    passed = true;
+                    reason = "Sin rojos. ¡Aprobado!";
+                } else if (totalReds === 1) {
+                    if (genAvg >= 4.5) { passed = true; reason = `Con 1 rojo, tu promedio (${genAvg}) es ≥ 4.5`; }
+                    else { passed = false; reason = `Con 1 rojo necesitas 4.5 (Tienes ${genAvg})`; }
+                } else if (totalReds === 2) {
+                    if (genAvg >= 5.0) { passed = true; reason = `Con 2 rojos, tu promedio (${genAvg}) es ≥ 5.0`; }
+                    else { passed = false; reason = `Con 2 rojos necesitas 5.0 (Tienes ${genAvg})`; }
+                } else {
+                    passed = false;
+                    reason = "Con más de 2 rojos se repite automáticamente.";
+                }
+
+                setVerdict({ passed, reason, totalReds, genAvg });
+            };
+
+            const calculatePromotion = () => {
+                let sum = 0, count = 0, redCount = 0;
+                subjects.forEach(s => {
+                    const val = parseFloat(s.avg);
+                    if (!isNaN(val)) {
+                        sum += val;
+                        count++;
+                        if (val < 4.0) redCount++;
+                    }
+                });
+                if (count === 0) { setPromoStatus(null); return; }
+                const generalAvg = parseFloat((sum / count).toFixed(1)); 
+                let passed = false, message = "";
+
+                if (redCount === 0) { passed = true; message = "Sin rojos. ¡Pasas de curso! 🎉"; }
+                else if (redCount === 1) {
+                    passed = generalAvg >= 4.5;
+                    message = passed ? `Con 1 rojo necesitas 4.5. Tienes ${generalAvg}. ¡Pasas! ✅` : `Con 1 rojo necesitas 4.5. Tienes ${generalAvg}. Repruebas ❌`;
+                } else if (redCount === 2) {
+                    passed = generalAvg >= 5.0;
+                    message = passed ? `Con 2 rojos necesitas 5.0. Tienes ${generalAvg}. ¡Pasas! ✅` : `Con 2 rojos necesitas 5.0. Tienes ${generalAvg}. Repruebas ❌`;
+                } else {
+                    passed = false; message = "Más de 2 rojos es repitencia automática 💀";
+                }
+                setPromoStatus({ generalAvg, redCount, passed, message });
+            };
+
+            const calculateSavingGrade = (avg, n) => {
+                if(!avg || !n) return null;
+                const needed = (4.0 * (n + 1)) - (avg * n);
+                const result = needed.toFixed(1);
+                if (result > 7.0) return "> 7.0 (Imposible)";
+                if (result < 1.0) return "1.0 (Ya pasaste)";
+                return result;
+            };
+
+            const handleReset = () => {
+                setGrades([{ id: 1, value: '' }]);
+                setSemester1Avg('');
+                setSemester2Avg('');
+                setOtherReds(0);
+                setGeneralAvgInput('');
+                setSubjects([
+                    { id: 1, name: 'Matemáticas', avg: '', gradeCount: 5 },
+                    { id: 2, name: 'Lenguaje', avg: '', gradeCount: 5 },
+                    { id: 3, name: 'Historia', avg: '', gradeCount: 5 },
+                    { id: 4, name: 'Ciencias', avg: '', gradeCount: 5 },
+                ]);
+            };
+
+            const getHeaderColor = () => {
+                if (activeTab === 'panic') return 'bg-purple-600';
+                if (activeTab === 'annual') return 'bg-orange-500';
+                if (activeTab === 'promotion') return 'bg-blue-600';
+                return 'bg-indigo-600';
+            };
+
+            return (
+                <div className="min-h-screen p-4 flex flex-col justify-center items-center">
+                    <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100 animate-fade-in">
+                        
+                        <div className={`p-6 text-white text-center relative transition-colors duration-500 ${getHeaderColor()}`}>
+                            <IconGraduation />
+                            <h1 className="text-2xl font-bold">Salva el Semestre</h1>
+                            <p className="text-white/80 text-sm opacity-90">
+                                {activeTab === 'panic' ? 'Simulador de Escenarios' : activeTab === 'annual' ? 'Veredicto Individual' : activeTab === 'promotion' ? 'Situación Final (Acta)' : 'Calculadora de Notas'}
+                            </p>
+                            <button onClick={handleReset} className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition" title="Reiniciar">
+                                <IconRotate />
+                            </button>
+                        </div>
+
+                        <div className="flex border-b border-slate-100">
+                            <button onClick={() => setActiveTab('calculator')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'calculator' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50' : 'text-slate-400 hover:text-slate-600'}`}><IconCalculator /> Notas</button>
+                            <button onClick={() => setActiveTab('panic')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'panic' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50/50' : 'text-slate-400 hover:text-slate-600'}`}><IconActivity /> Pánico</button>
+                            <button onClick={() => setActiveTab('annual')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'annual' ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-50/50' : 'text-slate-400 hover:text-slate-600'}`}><IconTrophy /> Anual</button>
+                             <button onClick={() => setActiveTab('promotion')} className={`flex-1 py-3 text-xs md:text-sm font-semibold flex items-center justify-center gap-1 transition-colors ${activeTab === 'promotion' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600'}`}><IconList /> Acta</button>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            
+                            {activeTab !== 'promotion' && (
+                                <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <label className="text-sm font-semibold text-slate-700 pl-1">Nota para aprobar (Azul):</label>
+                                    <input type="number" step="0.1" value={targetGrade} onChange={(e) => setTargetGrade(parseFloat(e.target.value))} className="w-20 p-1.5 text-center text-lg font-bold text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500" />
+                                </div>
+                            )}
+
+                            {/* --- TAB: NOTAS --- */}
+                            {activeTab === 'calculator' && (
+                                <>
+                                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 animate-fade-in">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Notas 2º Semestre</h3>
+                                            <span className="text-xs bg-white border border-slate-200 px-2 py-0.5 rounded-full text-slate-400 font-mono">Prom: {currentAverage || '--'}</span>
+                                        </div>
+                                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                                            {grades.map((grade, index) => (
+                                                <div key={grade.id} className="flex gap-2 items-center">
+                                                    <div className="relative flex-1">
+                                                        <input type="number" placeholder={`Nota ${index + 1}`} value={grade.value} onChange={(e) => updateGrade(grade.id, e.target.value)} className="w-full p-2 bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:outline-none text-center font-semibold" />
+                                                    </div>
+                                                    <button onClick={() => removeGradeRow(grade.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><IconTrash /></button>
+                                                </div>
+                                            ))}
+                                            <button onClick={addGradeRow} className="w-full py-2 flex items-center justify-center gap-1 text-sm text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200 dashed border-slate-300 mt-2"><IconPlus /> Agregar nota</button>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 animate-fade-in">
+                                        {result && (
+                                            <div className={`relative p-6 rounded-2xl text-center transition-all duration-300 ${result.type === 'impossible' ? 'bg-red-50 text-red-800 border border-red-200' : ''} ${result.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : ''} ${result.type === 'normal' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : ''} ${result.type === 'neutral' ? 'bg-slate-100 text-slate-500' : ''}`}>
+                                                {result.type !== 'neutral' ? (
+                                                    <>
+                                                        <p className="uppercase tracking-wider text-[10px] font-bold opacity-70 mb-1">Nota Necesaria</p>
+                                                        <div className="text-5xl font-black mb-2 tracking-tighter">{result.val}</div>
+                                                        <p className="text-xs font-medium opacity-90">{result.msg}</p>
+                                                    </>
+                                                ) : <div className="flex flex-col items-center py-2"><IconAlert /><p className="text-sm">{result.msg}</p></div>}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+
+                            {/* --- TAB: PANICO --- */}
+                            {activeTab === 'panic' && (
+                                <div className="animate-fade-in">
+                                    <div className="bg-purple-50 rounded-2xl p-5 border border-purple-100">
+                                        <p className="text-center text-purple-800 font-semibold mb-4 text-sm">Si en la próxima prueba saco...</p>
+                                        <div className="flex items-center justify-center gap-4 mb-6">
+                                            <button onClick={() => setSimulatedGrade(prev => Math.max(minGrade, parseFloat((prev - step).toFixed(1))))} className="w-8 h-8 rounded-full bg-white text-purple-600 shadow flex items-center justify-center font-bold hover:bg-purple-100">-</button>
+                                            <div className="text-4xl font-black text-purple-700 w-24 text-center">{typeof simulatedGrade === 'number' ? simulatedGrade.toFixed(1) : simulatedGrade}</div>
+                                            <button onClick={() => setSimulatedGrade(prev => Math.min(maxGrade, parseFloat((prev + step).toFixed(1))))} className="w-8 h-8 rounded-full bg-white text-purple-600 shadow flex items-center justify-center font-bold hover:bg-purple-100">+</button>
+                                        </div>
+                                        <input type="range" min={minGrade} max={maxGrade} step={step} value={simulatedGrade} onChange={(e) => setSimulatedGrade(parseFloat(e.target.value))} className="w-full accent-purple-600 mb-6 h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer" />
+                                        <div className={`p-4 rounded-xl text-center transition-colors duration-300 ${parseFloat(projectedAverage) >= targetGrade ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
+                                            <p className="text-xs font-bold uppercase opacity-70 mb-1">Mi promedio Semestral sería</p>
+                                            <div className="text-3xl font-black">{projectedAverage}</div>
+                                            <p className="text-xs mt-1 font-medium">{parseFloat(projectedAverage) >= targetGrade ? '🎉 ¡Aprobado!' : '😨 Reprobado'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* --- TAB: ANUAL --- */}
+                            {activeTab === 'annual' && (
+                                <div className="animate-fade-in space-y-4">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100 flex flex-col justify-center items-center">
+                                            <label className="block text-center text-orange-800 font-semibold mb-2 text-xs uppercase">Prom. 1er Sem</label>
+                                            <input type="number" step="0.1" placeholder="--" value={semester1Avg} onChange={(e) => setSemester1Avg(e.target.value)} className="w-full p-2 text-center text-xl font-bold text-orange-900 bg-white border-2 border-orange-200 rounded-xl focus:outline-none focus:border-orange-500 transition-all placeholder:text-orange-200" />
+                                        </div>
+                                        <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100 flex flex-col justify-center items-center">
+                                            <label className="block text-center text-indigo-800 font-semibold mb-2 text-xs uppercase">Prom. 2do Sem</label>
+                                            <input type="number" step="0.1" placeholder="--" value={semester2Avg} onChange={(e) => setSemester2Avg(e.target.value)} className="w-full p-2 text-center text-xl font-bold text-indigo-600 bg-white border-2 border-indigo-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-all placeholder:text-indigo-200" />
+                                        </div>
+                                    </div>
+                                    
+                                    {projectedAnnual ? (
+                                        <>
+                                            <div className={`p-4 rounded-xl border-l-4 shadow-sm flex justify-between items-center transition-colors ${projectedAnnual >= 4.0 ? 'bg-indigo-50 border-indigo-500 text-indigo-900' : 'bg-red-50 border-red-500 text-red-900'}`}>
+                                                <div>
+                                                    <p className="text-xs font-bold uppercase opacity-70">Promedio Anual</p>
+                                                    <p className="text-xs opacity-80">{projectedAnnual >= 4.0 ? 'Esta la pasas ✅' : 'Esta te da rojo ❌'}</p>
+                                                </div>
+                                                <div className="text-3xl font-black">{projectedAnnual}</div>
+                                            </div>
+
+                                            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 text-center border-b pb-2">Simulador de Repitencia</h3>
+                                                
+                                                <div className="flex gap-4 mb-4">
+                                                    <div className="flex-1">
+                                                        <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase text-center">Otros Rojos</label>
+                                                        <div className="flex items-center justify-center bg-slate-50 rounded-lg p-1">
+                                                            <button onClick={() => setOtherReds(Math.max(0, otherReds - 1))} className="w-6 h-6 rounded bg-white shadow text-slate-600 hover:text-orange-500 font-bold">-</button>
+                                                            <span className="flex-1 text-center font-bold text-slate-700">{otherReds}</span>
+                                                            <button onClick={() => setOtherReds(otherReds + 1)} className="w-6 h-6 rounded bg-white shadow text-slate-600 hover:text-orange-500 font-bold">+</button>
+                                                        </div>
+                                                        <p className="text-[9px] text-slate-400 text-center mt-1 leading-tight">Sin contar esta</p>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase text-center">Promedio General</label>
+                                                        <input 
+                                                            type="number" 
+                                                            step="0.1"
+                                                            placeholder={projectedAnnual}
+                                                            value={generalAvgInput} 
+                                                            onChange={(e) => setGeneralAvgInput(e.target.value)} 
+                                                            className="w-full h-[34px] text-center text-sm font-bold bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-orange-500" 
+                                                        />
+                                                        <p className="text-[9px] text-slate-400 text-center mt-1 leading-tight">De todas tus materias</p>
+                                                    </div>
+                                                </div>
+
+                                                {verdict && (
+                                                    <div className={`rounded-xl p-3 text-center transition-all animate-fade-in ${verdict.passed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                        <p className="text-lg font-black uppercase mb-1">{verdict.passed ? '¡PASAS DE CURSO! 🎉' : 'REPITES EL AÑO 💀'}</p>
+                                                        <p className="text-xs font-medium opacity-90 leading-snug">{verdict.reason}</p>
+                                                        <div className="mt-2 text-[10px] opacity-60 font-mono">
+                                                            Total Rojos: {verdict.totalReds} | Prom. Gen: {verdict.genAvg}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-center p-6 bg-slate-50 rounded-2xl border border-slate-100 text-slate-400">
+                                            <IconTrophy className="mx-auto mb-2 opacity-50" />
+                                            <p className="text-sm mt-2">Ingresa tus promedios para calcular tu situación final.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* --- TAB: PROMOCIÓN (ACTA) --- */}
+                            {activeTab === 'promotion' && (
+                                <div className="animate-fade-in space-y-4">
+                                    <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                                        <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-2 text-center">Cierre de Año Escolar</h3>
+                                        <p className="text-xs text-blue-600 text-center mb-4">Ingresa tus promedios finales cerrados.</p>
+                                        
+                                        {promoStatus && (
+                                            <div className={`p-4 rounded-xl border mb-4 text-center shadow-sm transition-all ${promoStatus.passed ? 'bg-green-100 border-green-300 text-green-900' : 'bg-red-100 border-red-300 text-red-900'}`}>
+                                                <div className="flex justify-around items-center mb-2">
+                                                    <div><span className="block text-[10px] uppercase font-bold opacity-60">Promedio General</span><span className="text-2xl font-black">{promoStatus.generalAvg}</span></div>
+                                                    <div><span className="block text-[10px] uppercase font-bold opacity-60">Rojos</span><span className="text-2xl font-black">{promoStatus.redCount}</span></div>
+                                                </div>
+                                                <p className="text-sm font-bold border-t border-black/10 pt-2 mt-2">{promoStatus.message}</p>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+                                            {subjects.map((sub, index) => {
+                                                const val = parseFloat(sub.avg);
+                                                const isRed = !isNaN(val) && val < 4.0;
+                                                const gradeCount = sub.gradeCount || 5; 
+                                                const savingGrade = isRed ? calculateSavingGrade(val, gradeCount) : null;
+                                                
+                                                return (
+                                                    <div key={sub.id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <input type="text" placeholder={`Asignatura ${index + 1}`} value={sub.name} onChange={(e) => updateSubject(sub.id, 'name', e.target.value)} className="flex-1 p-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500" />
+                                                            <div className="relative">
+                                                                <input type="number" step="0.1" placeholder="--" value={sub.avg} onChange={(e) => updateSubject(sub.id, 'avg', e.target.value)} className={`w-16 p-2 text-center font-bold text-lg border rounded-lg focus:outline-none focus:border-blue-500 ${isRed ? 'text-red-600 bg-red-50 border-red-200' : 'text-slate-700 bg-slate-50 border-slate-200'}`} />
+                                                            </div>
+                                                            <button onClick={() => removeSubject(sub.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><IconTrash /></button>
+                                                        </div>
+                                                        {isRed && (
+                                                            <div className="bg-yellow-50 rounded-lg p-3 flex flex-row items-center justify-between text-xs animate-fade-in border border-yellow-200">
+                                                                <div className="flex flex-col gap-1">
+                                                                    <span className="font-bold text-yellow-800 uppercase text-[10px] tracking-wide">¿N° de notas actuales?</span>
+                                                                    <div className="flex items-center">
+                                                                        <button onClick={() => updateSubject(sub.id, 'gradeCount', Math.max(1, gradeCount - 1))} className="w-6 h-6 bg-white border border-yellow-300 rounded text-yellow-700 font-bold">-</button>
+                                                                        <span className="w-8 text-center font-bold text-yellow-900 text-lg">{gradeCount}</span>
+                                                                        <button onClick={() => updateSubject(sub.id, 'gradeCount', gradeCount + 1)} className="w-6 h-6 bg-white border border-yellow-300 rounded text-yellow-700 font-bold">+</button>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-right pl-2 border-l border-yellow-200/50">
+                                                                    <span className="block text-[9px] uppercase font-bold text-yellow-600 mb-0.5">Para subir a 4.0</span>
+                                                                    <span className="block text-[10px] uppercase font-bold text-yellow-600 mb-0.5">Necesitas un:</span>
+                                                                    <span className="text-2xl font-black text-yellow-700 leading-none">{savingGrade}</span>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <button onClick={addSubject} className="w-full py-3 flex items-center justify-center gap-1 text-sm text-blue-600 bg-white hover:bg-blue-50 rounded-xl transition-colors border border-blue-200 mt-4 font-semibold shadow-sm"><IconPlus /> Agregar Asignatura</button>
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    </div>
+                    <div className="text-center mt-6 text-slate-400 text-sm font-medium">desarrollado por ProfeAle</div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
