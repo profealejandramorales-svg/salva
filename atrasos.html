@@ -3,506 +3,526 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Registro de Atrasos v2.0</title>
+    <title>Sistema de Registro de Atrasos v3.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; padding: 2rem; }
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         
-        .main-container {
-            display: grid; gap: 2rem; grid-template-columns: 1fr;
-            max-width: 1200px; margin: 0 auto;
-        }
-        @media (min-width: 1024px) {
-            .main-container { grid-template-columns: 1fr 1fr; }
-            .full-width { grid-column: span 2; }
-        }
-        
+        /* Contenedor Principal */
+        .main-wrapper { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+        /* Estilos de Tarjetas */
         .card {
-            background-color: white; padding: 2rem; border-radius: 1rem;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-            display: flex; flex-direction: column; gap: 1rem;
-        }
-        
-        .header-section {
-            display: flex; justify-content: space-between; align-items: center;
-            width: 100%; max-width: 1200px; margin: 0 auto 2rem;
-        }
-        
-        .btn { padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .btn-primary { background-color: #4f46e5; color: white; }
-        .btn-primary:hover { background-color: #4338ca; }
-        .btn-success { background-color: #10b981; color: white; }
-        .btn-danger { background-color: #ef4444; color: white; }
-        .btn-warning { background-color: #f59e0b; color: white; }
-        
-        .input-group { display: flex; flex-direction: column; gap: 0.5rem; }
-        .input-group label { font-weight: 600; color: #4b5563; }
-        .input-group select, .input-group input, .input-group textarea {
-            padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #d1d5db;
+            background-color: white; padding: 1.5rem; border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;
         }
 
-        /* Message Box */
-        .message-box-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; display: none; }
-        .message-box {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: white; padding: 2rem; border-radius: 1rem; z-index: 100;
-            display: none; flex-direction: column; gap: 1rem; text-align: center; max-width: 400px;
-        }
-
-        /* Estilos de tabla análisis */
-        .analysis-table th { background-color: #f3f4f6; color: #374151; font-weight: 600; }
-        .analysis-table td { border-bottom: 1px solid #e5e7eb; }
-        
+        /* --- ESTILOS DE IMPRESIÓN (VOUCHERS) --- */
         @media print {
-            @page { size: 80mm 200mm; margin: 0; } /* Ajustado para ticketera térmica si es necesario, o carta */
-            body * { visibility: hidden; }
-            .printable-content, .printable-content * { visibility: visible; }
-            .printable-content {
-                position: absolute; left: 0; top: 0; width: 100%;
-                font-family: Arial, sans-serif; font-size: 12px; padding: 10px;
+            @page { size: Letter portrait; margin: 0.5cm; }
+            
+            /* Ocultar todo menos el área de impresión */
+            body > *:not(#printable-area) { 
+                display: none !important; 
             }
+
+            /* Configuración de la cuadrícula de pases (4 por hoja) */
+            #printable-area {
+                display: grid !important; 
+                visibility: visible !important;
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%;
+                grid-template-columns: 1fr 1fr; /* 2 columnas */
+                grid-auto-rows: 6.2cm; /* Altura ajustada para que quepan 4 y la firma no se salga */
+                gap: 0.8cm; /* Espacio entre pases */
+                padding: 0.5cm;
+            }
+            
+            #printable-area * { visibility: visible !important; }
+            
+            /* Estilo de cada Pase Individual */
+            .voucher-card {
+                border: 2px dashed #666;
+                padding: 10px 15px; /* Padding reducido para ganar espacio */
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                background: white;
+                break-inside: avoid;
+                page-break-inside: avoid;
+                height: 100%; /* Ocupar toda la altura de la celda */
+            }
+
+            .no-print, #message-box, #print-alert { display: none !important; }
         }
     </style>
 </head>
-<body>
+<body class="bg-gray-100 min-h-screen">
 
-<div class="message-box-overlay" id="message-box-overlay"></div>
-<div class="message-box" id="message-box">
-    <p id="message-box-text"></p>
-    <div class="flex justify-center gap-4 mt-4">
-        <button id="message-box-ok" class="btn btn-primary">OK</button>
-        <button id="message-box-cancel" class="btn btn-danger hidden">Cancelar</button>
-    </div>
-</div>
+    <div id="message-box" class="fixed top-5 right-5 bg-blue-600 text-white px-6 py-3 rounded shadow-lg hidden transition-opacity z-50"></div>
 
-<div class="header-section">
-    <h1 class="text-3xl font-bold text-gray-800">Control de Atrasos</h1>
-    <div class="flex gap-2">
-        <button class="btn btn-danger" id="clear-data-btn">Borrar Todo</button>
-        <button class="btn btn-primary" id="print-report-btn">Reporte Diario</button>
-    </div>
-</div>
-
-<div id="print-alert" class="max-w-[1200px] mx-auto bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 hidden rounded shadow">
-    <p class="font-bold">⚠️ Aviso Importante</p>
-    <p>Recuerda imprimir el reporte diario de atrasos antes de las 18:00 hrs para el archivo físico.</p>
-</div>
-
-<div class="main-container">
-    
-    <div class="card">
-        <h2 class="text-xl font-bold text-indigo-700 border-b pb-2">Registrar Nuevo Atraso</h2>
-        <div class="flex flex-col gap-4">
-            <div class="input-group">
-                <label>Curso</label>
-                <select id="course-select">
-                    <option value="">Selecciona un curso</option>
-                    </select>
-            </div>
-            <div class="input-group">
-                <label>Alumno(a)</label>
-                <select id="student-select" disabled>
-                    <option value="">Primero selecciona un curso</option>
-                </select>
-            </div>
-            <div class="input-group">
-                <label>Momento del atraso</label>
-                <div class="grid grid-cols-2 gap-2 mt-1">
-                    <label class="flex items-center gap-2"><input type="radio" name="registro-type" value="Ingreso Mañana" checked> Ingreso Mañana</label>
-                    <label class="flex items-center gap-2"><input type="radio" name="registro-type" value="Primer Recreo"> 1° Recreo</label>
-                    <label class="flex items-center gap-2"><input type="radio" name="registro-type" value="Segundo Recreo"> 2° Recreo</label>
-                    <label class="flex items-center gap-2"><input type="radio" name="registro-type" value="Ingreso Tarde"> Ingreso Tarde</label>
+    <div class="main-wrapper">
+        
+        <div class="flex items-center justify-between mb-8 border-b pb-4 bg-white p-4 rounded-xl shadow-sm">
+            <div class="flex items-center gap-4">
+                <img src="logo.jpg" class="h-16 w-auto object-contain bg-gray-50 rounded-full p-1 border">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">Control de Atrasos</h1>
+                    <p class="text-xs text-gray-500 font-medium">Escuela Agrícola Sagrados Corazones</p>
                 </div>
             </div>
-            <button class="btn btn-success w-full" id="add-to-print-list-btn">Registrar y Añadir a Cola</button>
-        </div>
-
-        <div id="print-list-container" class="mt-4 border-t pt-4 hidden">
-            <div class="flex justify-between items-center mb-2">
-                <h3 class="font-bold text-gray-600">Cola de Impresión (Tickets)</h3>
-                <button class="text-sm text-red-500 hover:underline" id="clear-print-list-btn">Vaciar</button>
-            </div>
-            <ul id="print-list" class="space-y-2 text-sm text-gray-700 mb-4"></ul>
-            <button class="btn btn-primary w-full" id="print-collective-btn">🖨️ Imprimir Tickets Seleccionados</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2 class="text-xl font-bold text-indigo-700 border-b pb-2">Registros de HOY</h2>
-        <div class="flex-1 overflow-y-auto max-h-[400px]">
-            <p id="report-placeholder" class="text-gray-400 italic text-center mt-10">No hay atrasos registrados hoy.</p>
-            <table class="w-full text-left text-sm hidden" id="report-table">
-                <thead class="bg-gray-50 sticky top-0">
-                    <tr>
-                        <th class="p-2">Curso / Alumno</th>
-                        <th class="p-2">Hora</th>
-                        <th class="p-2">Acción</th>
-                    </tr>
-                </thead>
-                <tbody id="report-body" class="divide-y divide-gray-100"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="card full-width bg-indigo-50 border border-indigo-100">
-        <div class="flex justify-between items-end">
-            <div>
-                <h2 class="text-xl font-bold text-indigo-800">🔍 Análisis Histórico y Conductas</h2>
-                <p class="text-sm text-indigo-600">Busca atrasos por fecha y detecta alumnos reincidentes.</p>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
-            <div class="input-group">
-                <label class="text-xs uppercase">Desde</label>
-                <input type="date" id="search-date-start" class="bg-white">
-            </div>
-            <div class="input-group">
-                <label class="text-xs uppercase">Hasta</label>
-                <input type="date" id="search-date-end" class="bg-white">
-            </div>
-            <div class="input-group">
-                <label class="text-xs uppercase">Curso (Opcional)</label>
-                <select id="search-course" class="bg-white">
-                    <option value="todos">Todos los cursos</option>
-                    </select>
-            </div>
-            <div class="flex items-end">
-                <button id="btn-search" class="btn btn-warning w-full shadow-md">Buscar y Analizar</button>
+            <div class="text-right">
+                <div class="flex gap-2">
+                    <button class="bg-red-100 text-red-700 px-4 py-2 rounded font-bold hover:bg-red-200 text-sm transition" id="clear-data-btn">Borrar Historial</button>
+                    <button class="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 text-sm transition" id="print-report-btn">Reporte Diario</button>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-2 font-mono text-right">Desarrollado por ProfeAle</p>
             </div>
         </div>
 
-        <div id="analysis-results" class="hidden mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div id="print-alert" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 hidden rounded shadow-sm">
+            <div class="flex">
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700 font-bold">⚠️ Recordatorio de Cierre</p>
+                    <p class="text-xs text-yellow-600">Recuerda imprimir el reporte diario antes de las 18:00 hrs para el archivo físico de Inspectoría.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            <div class="md:col-span-1 bg-white p-4 rounded shadow-sm border border-gray-200">
-                <h3 class="font-bold text-red-600 mb-3 border-b pb-2">🔥 Top Reincidentes (Periodo)</h3>
-                <ul id="ranking-list" class="text-sm space-y-2">
-                    </ul>
+            <div class="card border-t-4 border-blue-500">
+                <h2 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4">Registrar Atraso</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Curso</label>
+                        <select id="course-select" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-200 outline-none bg-gray-50">
+                            <option value="">Selecciona un curso</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Estudiante</label>
+                        <select id="student-select" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-200 outline-none bg-gray-50" disabled>
+                            <option value="">Primero selecciona un curso</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Momento del Atraso</label>
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <label class="flex items-center gap-2 p-2 border rounded hover:bg-blue-50 cursor-pointer">
+                                <input type="radio" name="registro-type" value="Ingreso Mañana" checked class="text-blue-600"> 
+                                <span class="font-medium">Ingreso Mañana</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-2 border rounded hover:bg-blue-50 cursor-pointer">
+                                <input type="radio" name="registro-type" value="1° Recreo" class="text-blue-600"> 
+                                <span>1° Recreo</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-2 border rounded hover:bg-blue-50 cursor-pointer">
+                                <input type="radio" name="registro-type" value="2° Recreo" class="text-blue-600"> 
+                                <span>2° Recreo</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-2 border rounded hover:bg-blue-50 cursor-pointer">
+                                <input type="radio" name="registro-type" value="Ingreso Tarde" class="text-blue-600"> 
+                                <span class="font-medium">Ingreso Tarde</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button id="add-to-print-list-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded shadow transition transform active:scale-95">
+                        Registrar y Generar Pase
+                    </button>
+                </div>
+
+                <div id="print-list-container" class="mt-6 pt-4 border-t border-dashed hidden">
+                    <div class="flex justify-between items-center mb-2 bg-yellow-50 p-2 rounded">
+                        <h3 class="font-bold text-yellow-800 text-sm">🎓 Pases por Imprimir</h3>
+                        <button id="clear-print-list-btn" class="text-xs text-red-500 font-bold hover:underline">Vaciar Cola</button>
+                    </div>
+                    <ul id="print-list" class="space-y-1 mb-4 text-sm max-h-40 overflow-y-auto"></ul>
+                    <button id="print-collective-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded shadow flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z" /></svg>
+                        Imprimir Pases (4 por Hoja)
+                    </button>
+                </div>
             </div>
 
-            <div class="md:col-span-2 bg-white p-4 rounded shadow-sm border border-gray-200 overflow-y-auto max-h-[300px]">
-                <h3 class="font-bold text-gray-700 mb-3 border-b pb-2">Detalle de Registros Encontrados</h3>
-                <table class="w-full text-sm analysis-table">
-                    <thead>
-                        <tr>
-                            <th class="p-2 text-left">Fecha</th>
-                            <th class="p-2 text-left">Alumno</th>
-                            <th class="p-2 text-left">Tipo</th>
-                        </tr>
-                    </thead>
-                    <tbody id="search-results-body">
-                        </tbody>
-                </table>
+            <div class="card border-t-4 border-indigo-500 flex flex-col h-full">
+                <h2 class="text-lg font-bold text-gray-800 border-b pb-2 mb-2">Bitácora Diaria (Hoy)</h2>
+                <div class="flex-1 overflow-y-auto max-h-[500px] pr-2">
+                    <p id="report-placeholder" class="text-gray-400 italic text-center mt-10 text-sm">No se han registrado atrasos hoy.</p>
+                    <table class="w-full text-left text-sm hidden" id="report-table">
+                        <thead class="bg-gray-50 sticky top-0 z-10 text-xs uppercase text-gray-500">
+                            <tr>
+                                <th class="p-2">Hora</th>
+                                <th class="p-2">Estudiante</th>
+                                <th class="p-2 text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-body" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
+
+        <div class="card mt-6 bg-gray-50 border-gray-200">
+            <h2 class="text-lg font-bold text-gray-700 flex items-center gap-2">
+                <span class="bg-gray-200 p-1 rounded">🔎</span> Análisis Histórico
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                <div><label class="text-xs font-bold text-gray-500">Desde</label><input type="date" id="search-date-start" class="w-full p-2 border rounded"></div>
+                <div><label class="text-xs font-bold text-gray-500">Hasta</label><input type="date" id="search-date-end" class="w-full p-2 border rounded"></div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Curso</label>
+                    <select id="search-course" class="w-full p-2 border rounded"><option value="todos">Todos los cursos</option></select>
+                </div>
+                <div class="flex items-end">
+                    <button id="btn-search" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded shadow">Buscar</button>
+                </div>
+            </div>
+
+            <div id="analysis-results" class="hidden mt-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-4 rounded border border-red-100 shadow-sm">
+                        <h3 class="text-red-600 font-bold text-sm mb-3 border-b pb-1">🔥 Top Reincidentes (Periodo)</h3>
+                        <ul id="ranking-list" class="text-sm space-y-2"></ul>
+                    </div>
+                    <div class="md:col-span-2 bg-white p-4 rounded border border-gray-200 shadow-sm overflow-y-auto max-h-60">
+                        <h3 class="text-gray-700 font-bold text-sm mb-3 border-b pb-1">Detalle de Registros</h3>
+                        <table class="w-full text-xs">
+                            <thead class="bg-gray-50"><tr><th class="p-2 text-left">Fecha</th><th class="p-2 text-left">Alumno</th><th class="p-2 text-left">Momento</th></tr></thead>
+                            <tbody id="search-results-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
-</div>
+    <div id="printable-area" class="hidden"></div>
 
-<script>
-    // --- DATOS DEL COLEGIO ---
-    const studentsByCourse = {
-        'Primero Medio A': ['ALBURQUENQUE DEL GRECCO EMILYA ANTONIA', 'ANABALÓN BELTRÁN BENJAMÍN NICOLÁS', 'CONTRERAS SALGADO HADEEY ALEJANDRA', 'FERRADA ALBORNOZ AGUSTÍN ALEXIS', 'HERNÁNDEZ FERNÁNDEZ DHARIEN ALEXSANDER', 'IBÁÑEZ GONZÁLEZ FERNANDA MAGDALENA', 'LAGOS LASTRA ALEXANDRA DANAE', 'LÓPEZ LÓPEZ LUCIANO ANTONIO', 'MALDONADO FLORES ANTONELLA BELÉN', 'MARIN MARÍN IGNACIO ANTONIO', 'MONTECINO DÍAZ VALESKA BELÉN', 'MUÑOZ CONTRERAS LUIS GABRIEL', 'MUÑOZ LUNA ROGER JOEL', 'NAVARRO VILLANUEVA KARLA PAZ', 'ORELLANA ARRIAGADA SEBASTIÁN ANDRÉS', 'QUEZADA NARANJO FELIPE ALONSO', 'QUINTEROS VERGARA FERNANDA FLORENCIA', 'RAMÍREZ VILLALOBOS DUVAN EMILIO', 'SANTANDER LÓPEZ MARÍA JOSÉ', 'TAPIA CASTILLA JEANFRANCO PATRICK', 'URBINA CÁCERES FRANCHESCA POULETTE', 'VÁSQUEZ ZALDUENDO AMANDA ISABEL', 'ZABALAGA COFRÉ DAMIÁN ANDRÉS', 'BAEZ DONOSO LUKAS ALFONSO', 'MESA DÍAZ GONZALO IGNACIO', 'BAREA SALGADO SERGIO ALEXANDER'],
-        'Primero Medio B': ['ARAYA DOMÍNGUEZ ALEX FABIÁN', 'BRAVO MENARES ALEX JOHAN', 'CARRASCO LEIVA BENJAMÍN IGNACIO', 'CARVAJAL URRUTIA CONSTANZA PRISILA (DANIEL)', 'ENCINA PIZARRO DIEGO BENJAMÍN ALEXANDER', 'FAÚNDEZ NORAMBUENA ALEJANDRO ANTONIO', 'JARAMILLO VILLAR EMILIO SCOTT', 'LÓPEZ VILLAR MARTÍN ALONSO', 'MIRANDA MUÑOZ ALEXANDRA JAVIERA', 'MUÑOZ TRONCOSO HÉCTOR ANTONIO', 'OLIVARES VALENZUELA ALONSO IGNACIO', 'OLIVARES VALENZUELA ANTONELLA DANAE IGNACIA', 'ORELLANA GARRIDO MATÍAS LEANDRO', 'PUNOY MEDEL MILLARAY ANGÉLICA', 'QUIÑENAO MUÑOZ CRISTÓBAL PATRICIO', 'RIQUELME COLOMA DALIA CONSTANZA', 'SALGADO ROJAS VICENTE MOISÉS', 'SANDOVAL CERPA VICENTE ESTEBAN', 'SOTO NARANJO CHRISTOPHER', 'VEKARIC VERDEJO MARTÍN'],
-        'Segundo Medio A': ['AHUMADA ROJAS TRINIDAD BELÉN', 'ESPINOSA TORRES FERNANDA ELENA', 'ESPINOZA PEÑALILLO BRAYAN JESÚS', 'GONZÁLEZ SALAZAR EMILIA CATALINA', 'MEDEL OJEDA LEÓN IGNACIO', 'MORALES REIMÁN ALFONSO TOMÁS', 'PEREIRA HORMAZÁBAL MAXIMILIANO EDUARDO', 'PINTO TOBAR JORDÁN AMARO', 'RECABAL YÁÑEZ KEVIN ANDRÉS', 'RIQUELME CASTILLO MATÍAS EDUARDO ANTONIO', 'RIVERA ABARZA CONSTANZA VICTORIA', 'SANTIS CASSEUS TEIVA SCARLETT', 'SOBARZO YÉVENES KATHERINNE ALEXIA BELÉN', 'TOLEDO ALBORNOZ ANTONELLA INES', 'VENEGAS ARRIAGADA ANTONIA EDITH', 'VIELMA ZABALAGA JOAN MANUEL', 'MEZA COLIMÁN ANGEL BLAS', 'PALMA ORELLANA ANTONELLA FRANCISCA'],
-        'Segundo Medio B': ['ARAYA DOMÍNGUEZ ALEX FABIÁN', 'BRAVO MENARES ALEX JOHAN', 'CARRASCO LEIVA BENJAMÍN IGNACIO', 'CARVAJAL URRUTIA CONSTANZA PRISILA (DANIEL)', 'ENCINA PIZARRO DIEGO BENJAMÍN ALEXANDER', 'FAÚNDEZ NORAMBUENA ALEJANDRO ANTONIO', 'JARAMILLO VILLAR EMILIO SCOTT', 'LÓPEZ VILLAR MARTÍN ALONSO', 'MIRANDA MUÑOZ ALEXANDRA JAVIERA', 'MUÑOZ TRONCOSO HÉCTOR ANTONIO', 'OLIVARES VALENZUELA ALONSO IGNACIO', 'OLIVARES VALENZUELA ANTONELLA DANAE IGNACIA', 'ORELLANA GARRIDO MATÍAS LEANDRO', 'PUNOY MEDEL MILLARAY ANGÉLICA', 'QUIÑENAO MUÑOZ CRISTÓBAL PATRICIO', 'RIQUELME COLOMA DALIA CONSTANZA', 'SALGADO ROJAS VICENTE MOISÉS', 'SANDOVAL CERPA VICENTE ESTEBAN', 'SOTO NARANJO CHRISTOPHER', 'VEKARIC VERDEJO MARTÍN'],
-        'Tercero Medio A': ['ALCÁNTAR GARCÍA MARTINA ALEJANDRA', 'BAHAMONDE MUÑOZ ARIEL LEON', 'CAMPOS MUÑOZ CRISTOPHER JESÚS', 'CANCINO ORÓSTICA VICENTE GASPAR', 'CARRASCO GONZÁLEZ CAMILA ANDREA', 'COFRÉ CASTILLO ANTONIO ANDRÉS', 'CONTRERAS VENEGAS BELÉN ALEJANDRA', 'GALDAMES VERGARA FELIPE ESTEBAN', 'GARCÍA GONZÁLEZ SANTIAGO HUMBERTO', 'GONZÁLEZ AMIGO FRANCISCA IGNACIA', 'GONZÁLEZ SALAZAR JOAQUÍN ALONSO', 'GUTIÉRREZ GUTIÉRREZ ANGEL MARTÍN', 'JARA SEPÚLVEDA KATRINA DARINKA', 'MARTÍNEZ LIZANA AARON ALEJANDRO', 'MEZA CARRASCO BENJAMÍN INTI', 'MIÑO GONZALEZ CATALINA ANDREA', 'MORAGA PACHECO RENATO IGNACIO', 'PÉREZ CORÓN MANUEL IGNACIO', 'SAMANIEGO CORTEZ JAKSON FERGIE', 'SEPÚLVEDA SALAZAR SOFÍA ANTONIA', 'TAPIA ACUÑA GABRIEL ANTONIO', 'VEGA VIVANCO CRISTÓBAL ANTONIO', 'VERA NAVARRETE DANIELA ELIZABETH', 'VILLALOBOS ARAVENA KARINA ANGELINA', 'VILLALOBOS VILLALOBOS SAMIR LUCIAN JESÚS', 'HERNÁNDEZ SEPÚLVEDA VICENTE ALEJANDRO', 'TORREALBA MOYA FLORVELIS DE LOS ANGELES', 'CARO URRUTIA CONSUELO ANTONIA', 'LOBOS CÁCERES ANTONIA PAZ'],
-        'Tercero Medio C': ['ARELLANO ACUÑA MARTÍN ANTONIO', 'AROS ÁVILA DAYANA IGNACIA', 'CABRERA COLOMBINO MARÍA GRACIA', 'FUENTES CARRASCO YARIXA ALEJANDRA', 'GÓMEZ CANCINO DANIELA ALEJANDRA', 'GUTIÉRREZ CARRIÓN MILLARAY CAROLINA', 'HONORATO TAPIA GLORIA JAVIERA', 'LARA RIVERA BENJAMÍN ESTEBAN', 'PALACIOS SOTO JOSÉ TOMÁS', 'PEZO SANTANDER JOSÉ CRISTÓBAL', 'ROCHA ROJAS JOSÉ PABLO WILLIAMS', 'ROJAS YÉVENES FABIANA ISIDORA', 'SÁNCHEZ PAREJA ANDY ANTONIO', 'SANTANDER LÓPEZ SIMÓN ESTEBAN', 'TRONCOSO LIZAMA SIOMARA IGNACIA', 'WARNKEN ROJAS LUCIANA BERNABELA', 'DE LA HOZ VALENZUELA FRANCO SEBASTIÁN', 'COLLAO MEDINA ANAÍS VALENTINA'],
-        'Cuarto Medio A': ['AGURTO CRESPO HOMERO ALEXANDER', 'ANDIA DE LA HOZ CATALINA BELEN', 'FUENTES GONZÁLEZ ESTEBAN ALEXANDER', 'GARCÍA ROJAS SOFÍA ELENA', 'GODOY HERRERA ANTONELLA CONSTANZA PAZ', 'GONZÁLEZ CASTRO KEVIN ALEJANDRO', 'MARCHANT MORÁN PÍA IGNACIA', 'QUINTANA SAN MARTÍN ALAN VICENTE', 'RECABAL YÁÑEZ CRISTOFER BASTIÁN', 'ROJAS GONZÁLEZ GABRIEL ANTONIO', 'TOLEDO MUÑOZ ESPERANZA BELÉN', 'YÁÑEZ GONZÁLEZ FRANCISCA ALEJANDRA'],
-        'Cuarto Medio C': ['Josefa Morales', 'Benjamín Pérez', 'Constanza Varela'],
-    };
-
-    // --- VARIABLES Y DOM ---
-    const courseSelect = document.getElementById('course-select');
-    const studentSelect = document.getElementById('student-select');
-    const searchCourseSelect = document.getElementById('search-course');
-    
-    // Arrays
-    let atrasos = JSON.parse(localStorage.getItem('atrasos')) || [];
-    let studentsToPrint = [];
-
-    // --- INICIALIZACIÓN ---
-    document.addEventListener('DOMContentLoaded', () => {
-        // Llenar Selects de Cursos
-        for (const course in studentsByCourse) {
-            const opt1 = document.createElement('option'); opt1.value = course; opt1.textContent = course;
-            courseSelect.appendChild(opt1);
-            
-            const opt2 = document.createElement('option'); opt2.value = course; opt2.textContent = course;
-            searchCourseSelect.appendChild(opt2);
-        }
-
-        // Fechas por defecto para búsqueda (Mes actual)
-        const today = new Date();
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-        const lastDay = today.toISOString().split('T')[0];
-        document.getElementById('search-date-start').value = firstDay;
-        document.getElementById('search-date-end').value = lastDay;
-
-        renderReport();
-        showPrintAlert();
-    });
-
-    // Evento Cambio de Curso (Registro)
-    courseSelect.addEventListener('change', () => {
-        const selectedCourse = courseSelect.value;
-        studentSelect.innerHTML = '<option value="">Selecciona un alumno(a)</option>';
-        studentSelect.disabled = !selectedCourse;
-
-        if (selectedCourse && studentsByCourse[selectedCourse]) {
-            studentsByCourse[selectedCourse].forEach(student => {
-                const option = document.createElement('option');
-                option.value = student; option.textContent = student;
-                studentSelect.appendChild(option);
-            });
-        }
-    });
-
-    // --- LÓGICA PRINCIPAL ---
-
-    // 1. REGISTRAR ATRASO
-    document.getElementById('add-to-print-list-btn').addEventListener('click', () => {
-        const course = courseSelect.value;
-        const student = studentSelect.value;
-        const type = document.querySelector('input[name="registro-type"]:checked')?.value;
-
-        if (!course || !student || !type) return showMessageBox('Faltan datos.');
-
-        const now = new Date();
-        const newAtraso = {
-            course, student, type,
-            time: now.toLocaleTimeString(),
-            timestamp: now.toLocaleString(),
-            // IMPORTANTE: Guardamos fecha ISO para poder filtrar después
-            dateISO: now.toISOString().split('T')[0] 
+    <script>
+        // --- DATOS DEL COLEGIO ---
+        const studentsByCourse = {
+            'Primero Medio A': ['ALBURQUENQUE DEL GRECCO EMILYA ANTONIA', 'ANABALÓN BELTRÁN BENJAMÍN NICOLÁS', 'CONTRERAS SALGADO HADEEY ALEJANDRA', 'FERRADA ALBORNOZ AGUSTÍN ALEXIS', 'HERNÁNDEZ FERNÁNDEZ DHARIEN ALEXSANDER', 'IBÁÑEZ GONZÁLEZ FERNANDA MAGDALENA', 'LAGOS LASTRA ALEXANDRA DANAE', 'LÓPEZ LÓPEZ LUCIANO ANTONIO', 'MALDONADO FLORES ANTONELLA BELÉN', 'MARIN MARÍN IGNACIO ANTONIO', 'MONTECINO DÍAZ VALESKA BELÉN', 'MUÑOZ CONTRERAS LUIS GABRIEL', 'MUÑOZ LUNA ROGER JOEL', 'NAVARRO VILLANUEVA KARLA PAZ', 'ORELLANA ARRIAGADA SEBASTIÁN ANDRÉS', 'QUEZADA NARANJO FELIPE ALONSO', 'QUINTEROS VERGARA FERNANDA FLORENCIA', 'RAMÍREZ VILLALOBOS DUVAN EMILIO', 'SANTANDER LÓPEZ MARÍA JOSÉ', 'TAPIA CASTILLA JEANFRANCO PATRICK', 'URBINA CÁCERES FRANCHESCA POULETTE', 'VÁSQUEZ ZALDUENDO AMANDA ISABEL', 'ZABALAGA COFRÉ DAMIÁN ANDRÉS', 'BAEZ DONOSO LUKAS ALFONSO', 'MESA DÍAZ GONZALO IGNACIO', 'BAREA SALGADO SERGIO ALEXANDER'],
+            'Primero Medio B': ['ARAYA DOMÍNGUEZ ALEX FABIÁN', 'BRAVO MENARES ALEX JOHAN', 'CARRASCO LEIVA BENJAMÍN IGNACIO', 'CARVAJAL URRUTIA CONSTANZA PRISILA (DANIEL)', 'ENCINA PIZARRO DIEGO BENJAMÍN ALEXANDER', 'FAÚNDEZ NORAMBUENA ALEJANDRO ANTONIO', 'JARAMILLO VILLAR EMILIO SCOTT', 'LÓPEZ VILLAR MARTÍN ALONSO', 'MIRANDA MUÑOZ ALEXANDRA JAVIERA', 'MUÑOZ TRONCOSO HÉCTOR ANTONIO', 'OLIVARES VALENZUELA ALONSO IGNACIO', 'OLIVARES VALENZUELA ANTONELLA DANAE IGNACIA', 'ORELLANA GARRIDO MATÍAS LEANDRO', 'PUNOY MEDEL MILLARAY ANGÉLICA', 'QUIÑENAO MUÑOZ CRISTÓBAL PATRICIO', 'RIQUELME COLOMA DALIA CONSTANZA', 'SALGADO ROJAS VICENTE MOISÉS', 'SANDOVAL CERPA VICENTE ESTEBAN', 'SOTO NARANJO CHRISTOPHER', 'VEKARIC VERDEJO MARTÍN'],
+            'Segundo Medio A': ['AHUMADA ROJAS TRINIDAD BELÉN', 'ESPINOSA TORRES FERNANDA ELENA', 'ESPINOZA PEÑALILLO BRAYAN JESÚS', 'GONZÁLEZ SALAZAR EMILIA CATALINA', 'MEDEL OJEDA LEÓN IGNACIO', 'MORALES REIMÁN ALFONSO TOMÁS', 'PEREIRA HORMAZÁBAL MAXIMILIANO EDUARDO', 'PINTO TOBAR JORDÁN AMARO', 'RECABAL YÁÑEZ KEVIN ANDRÉS', 'RIQUELME CASTILLO MATÍAS EDUARDO ANTONIO', 'RIVERA ABARZA CONSTANZA VICTORIA', 'SANTIS CASSEUS TEIVA SCARLETT', 'SOBARZO YÉVENES KATHERINNE ALEXIA BELÉN', 'TOLEDO ALBORNOZ ANTONELLA INES', 'VENEGAS ARRIAGADA ANTONIA EDITH', 'VIELMA ZABALAGA JOAN MANUEL', 'MEZA COLIMÁN ANGEL BLAS', 'PALMA ORELLANA ANTONELLA FRANCISCA'],
+            'Segundo Medio B': ['ARAYA DOMÍNGUEZ ALEX FABIÁN', 'BRAVO MENARES ALEX JOHAN', 'CARRASCO LEIVA BENJAMÍN IGNACIO', 'CARVAJAL URRUTIA CONSTANZA PRISILA (DANIEL)', 'ENCINA PIZARRO DIEGO BENJAMÍN ALEXANDER', 'FAÚNDEZ NORAMBUENA ALEJANDRO ANTONIO', 'JARAMILLO VILLAR EMILIO SCOTT', 'LÓPEZ VILLAR MARTÍN ALONSO', 'MIRANDA MUÑOZ ALEXANDRA JAVIERA', 'MUÑOZ TRONCOSO HÉCTOR ANTONIO', 'OLIVARES VALENZUELA ALONSO IGNACIO', 'OLIVARES VALENZUELA ANTONELLA DANAE IGNACIA', 'ORELLANA GARRIDO MATÍAS LEANDRO', 'PUNOY MEDEL MILLARAY ANGÉLICA', 'QUIÑENAO MUÑOZ CRISTÓBAL PATRICIO', 'RIQUELME COLOMA DALIA CONSTANZA', 'SALGADO ROJAS VICENTE MOISÉS', 'SANDOVAL CERPA VICENTE ESTEBAN', 'SOTO NARANJO CHRISTOPHER', 'VEKARIC VERDEJO MARTÍN'],
+            'Tercero Medio A': ['ALCÁNTAR GARCÍA MARTINA ALEJANDRA', 'BAHAMONDE MUÑOZ ARIEL LEON', 'CAMPOS MUÑOZ CRISTOPHER JESÚS', 'CANCINO ORÓSTICA VICENTE GASPAR', 'CARRASCO GONZÁLEZ CAMILA ANDREA', 'COFRÉ CASTILLO ANTONIO ANDRÉS', 'CONTRERAS VENEGAS BELÉN ALEJANDRA', 'GALDAMES VERGARA FELIPE ESTEBAN', 'GARCÍA GONZÁLEZ SANTIAGO HUMBERTO', 'GONZÁLEZ AMIGO FRANCISCA IGNACIA', 'GONZÁLEZ SALAZAR JOAQUÍN ALONSO', 'GUTIÉRREZ GUTIÉRREZ ANGEL MARTÍN', 'JARA SEPÚLVEDA KATRINA DARINKA', 'MARTÍNEZ LIZANA AARON ALEJANDRO', 'MEZA CARRASCO BENJAMÍN INTI', 'MIÑO GONZALEZ CATALINA ANDREA', 'MORAGA PACHECO RENATO IGNACIO', 'PÉREZ CORÓN MANUEL IGNACIO', 'SAMANIEGO CORTEZ JAKSON FERGIE', 'SEPÚLVEDA SALAZAR SOFÍA ANTONIA', 'TAPIA ACUÑA GABRIEL ANTONIO', 'VEGA VIVANCO CRISTÓBAL ANTONIO', 'VERA NAVARRETE DANIELA ELIZABETH', 'VILLALOBOS ARAVENA KARINA ANGELINA', 'VILLALOBOS VILLALOBOS SAMIR LUCIAN JESÚS', 'HERNÁNDEZ SEPÚLVEDA VICENTE ALEJANDRO', 'TORREALBA MOYA FLORVELIS DE LOS ANGELES', 'CARO URRUTIA CONSUELO ANTONIA', 'LOBOS CÁCERES ANTONIA PAZ'],
+            'Tercero Medio C': ['ARELLANO ACUÑA MARTÍN ANTONIO', 'AROS ÁVILA DAYANA IGNACIA', 'CABRERA COLOMBINO MARÍA GRACIA', 'FUENTES CARRASCO YARIXA ALEJANDRA', 'GÓMEZ CANCINO DANIELA ALEJANDRA', 'GUTIÉRREZ CARRIÓN MILLARAY CAROLINA', 'HONORATO TAPIA GLORIA JAVIERA', 'LARA RIVERA BENJAMÍN ESTEBAN', 'PALACIOS SOTO JOSÉ TOMÁS', 'PEZO SANTANDER JOSÉ CRISTÓBAL', 'ROCHA ROJAS JOSÉ PABLO WILLIAMS', 'ROJAS YÉVENES FABIANA ISIDORA', 'SÁNCHEZ PAREJA ANDY ANTONIO', 'SANTANDER LÓPEZ SIMÓN ESTEBAN', 'TRONCOSO LIZAMA SIOMARA IGNACIA', 'WARNKEN ROJAS LUCIANA BERNABELA', 'DE LA HOZ VALENZUELA FRANCO SEBASTIÁN', 'COLLAO MEDINA ANAÍS VALENTINA'],
+            'Cuarto Medio A': ['AGURTO CRESPO HOMERO ALEXANDER', 'ANDIA DE LA HOZ CATALINA BELEN', 'FUENTES GONZÁLEZ ESTEBAN ALEXANDER', 'GARCÍA ROJAS SOFÍA ELENA', 'GODOY HERRERA ANTONELLA CONSTANZA PAZ', 'GONZÁLEZ CASTRO KEVIN ALEJANDRO', 'MARCHANT MORÁN PÍA IGNACIA', 'QUINTANA SAN MARTÍN ALAN VICENTE', 'RECABAL YÁÑEZ CRISTOFER BASTIÁN', 'ROJAS GONZÁLEZ GABRIEL ANTONIO', 'TOLEDO MUÑOZ ESPERANZA BELÉN', 'YÁÑEZ GONZÁLEZ FRANCISCA ALEJANDRA'],
+            'Cuarto Medio C': ['Josefa Morales', 'Benjamín Pérez', 'Constanza Varela'],
         };
 
-        atrasos.push(newAtraso);
-        localStorage.setItem('atrasos', JSON.stringify(atrasos));
+        const courseSelect = document.getElementById('course-select');
+        const studentSelect = document.getElementById('student-select');
+        const searchCourseSelect = document.getElementById('search-course');
         
-        studentsToPrint.push(newAtraso);
-        renderStudentsToPrint();
-        renderReport();
-        
-        // Reset selección estudiante
-        studentSelect.value = '';
-    });
+        let atrasos = JSON.parse(localStorage.getItem('atrasos')) || [];
+        let studentsToPrint = [];
 
-    // 2. BUSCAR Y ANALIZAR (NUEVO)
-    document.getElementById('btn-search').addEventListener('click', () => {
-        const start = document.getElementById('search-date-start').value;
-        const end = document.getElementById('search-date-end').value;
-        const courseFilter = document.getElementById('search-course').value;
-
-        if (!start || !end) return showMessageBox('Selecciona rango de fechas.');
-
-        // Filtrar datos
-        const filtered = atrasos.filter(a => {
-            // Manejo de compatibilidad para datos antiguos sin dateISO
-            let recordDate = a.dateISO;
-            if (!recordDate) {
-                // Intento simple de extraer fecha de timestamp antiguo si es necesario
-                // Pero priorizamos los datos nuevos.
-                try { recordDate = new Date(a.timestamp).toISOString().split('T')[0]; } catch(e){ return false; }
+        // --- INICIALIZACIÓN ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Llenar selects
+            for (const course in studentsByCourse) {
+                const opt1 = document.createElement('option'); opt1.value = course; opt1.textContent = course; courseSelect.appendChild(opt1);
+                const opt2 = document.createElement('option'); opt2.value = course; opt2.textContent = course; searchCourseSelect.appendChild(opt2);
             }
+
+            // Fechas búsqueda
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+            const lastDay = today.toISOString().split('T')[0];
+            document.getElementById('search-date-start').value = firstDay;
+            document.getElementById('search-date-end').value = lastDay;
+
+            renderReport();
+            showPrintAlert();
+        });
+
+        courseSelect.addEventListener('change', () => {
+            const selectedCourse = courseSelect.value;
+            studentSelect.innerHTML = '<option value="">Selecciona un alumno(a)</option>';
+            studentSelect.disabled = !selectedCourse;
+            if (selectedCourse && studentsByCourse[selectedCourse]) {
+                studentsByCourse[selectedCourse].forEach(student => {
+                    const option = document.createElement('option'); option.value = student; option.textContent = student; studentSelect.appendChild(option);
+                });
+            }
+        });
+
+        // --- REGISTRAR ATRASO ---
+        document.getElementById('add-to-print-list-btn').addEventListener('click', () => {
+            const course = courseSelect.value;
+            const student = studentSelect.value;
+            const type = document.querySelector('input[name="registro-type"]:checked')?.value;
+
+            if (!course || !student || !type) return showToast('Faltan datos para registrar.');
+
+            const now = new Date();
+            const newAtraso = {
+                course, student, type,
+                time: now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                dateISO: now.toISOString().split('T')[0],
+                timestamp: now.toLocaleString()
+            };
+
+            atrasos.push(newAtraso);
+            localStorage.setItem('atrasos', JSON.stringify(atrasos));
             
-            const matchesDate = recordDate >= start && recordDate <= end;
-            const matchesCourse = courseFilter === 'todos' || a.course === courseFilter;
-            return matchesDate && matchesCourse;
+            studentsToPrint.push(newAtraso);
+            renderStudentsToPrint();
+            renderReport();
+            studentSelect.value = '';
+            showToast('✅ Atraso registrado. Agregado a cola de impresión.');
         });
 
-        if (filtered.length === 0) return showMessageBox('No se encontraron registros en este periodo.', 'alert');
+        // --- BUSQUEDA ---
+        document.getElementById('btn-search').addEventListener('click', () => {
+            const start = document.getElementById('search-date-start').value;
+            const end = document.getElementById('search-date-end').value;
+            const courseFilter = document.getElementById('search-course').value;
 
-        // Generar Ranking
-        const counts = {};
-        filtered.forEach(a => {
-            const key = `${a.student} (${a.course})`;
-            counts[key] = (counts[key] || 0) + 1;
-        });
+            if (!start || !end) return showToast('Selecciona rango de fechas.');
 
-        // Ordenar Ranking
-        const sortedRanking = Object.entries(counts)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 5); // Top 5
-
-        // Renderizar Resultados
-        document.getElementById('analysis-results').classList.remove('hidden');
-        
-        // Tabla Detalle
-        const tableBody = document.getElementById('search-results-body');
-        tableBody.innerHTML = filtered.map(a => `
-            <tr>
-                <td class="p-2 border-b">${a.dateISO || a.timestamp.split(',')[0]}</td>
-                <td class="p-2 border-b font-bold text-gray-700">${a.student}</td>
-                <td class="p-2 border-b text-xs">${a.type}</td>
-            </tr>
-        `).join('');
-
-        // Lista Ranking
-        const rankingList = document.getElementById('ranking-list');
-        rankingList.innerHTML = sortedRanking.map(([name, count], index) => `
-            <li class="flex justify-between items-center bg-gray-50 p-2 rounded">
-                <span class="text-xs font-bold text-gray-700 max-w-[80%] truncate">${index + 1}. ${name}</span>
-                <span class="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-bold">${count}</span>
-            </li>
-        `).join('');
-    });
-
-    // --- FUNCIONES UTILITARIAS Y DE IMPRESIÓN (Mantenidas) ---
-
-    function renderStudentsToPrint() {
-        const list = document.getElementById('print-list');
-        const container = document.getElementById('print-list-container');
-        list.innerHTML = '';
-        
-        if (studentsToPrint.length > 0) {
-            container.classList.remove('hidden');
-            studentsToPrint.forEach((a, idx) => {
-                list.innerHTML += `<li class="flex justify-between border-b pb-1">
-                    <span>${a.student}</span>
-                    <button class="text-red-500 font-bold" onclick="removeFromPrint(${idx})">×</button>
-                </li>`;
+            const filtered = atrasos.filter(a => {
+                let recordDate = a.dateISO;
+                if (!recordDate) { try { recordDate = new Date(a.timestamp).toISOString().split('T')[0]; } catch(e){ return false; } }
+                const matchesDate = recordDate >= start && recordDate <= end;
+                const matchesCourse = courseFilter === 'todos' || a.course === courseFilter;
+                return matchesDate && matchesCourse;
             });
-        } else {
-            container.classList.add('hidden');
-        }
-    }
 
-    window.removeFromPrint = (idx) => { studentsToPrint.splice(idx, 1); renderStudentsToPrint(); };
-    
-    document.getElementById('clear-print-list-btn').onclick = () => { studentsToPrint = []; renderStudentsToPrint(); };
+            if (filtered.length === 0) return showToast('No se encontraron registros.');
 
-    // Imprimir Ticket Colectivo
-    document.getElementById('print-collective-btn').onclick = () => {
-        if(studentsToPrint.length === 0) return;
-        const html = `
-            <html><head><style>body{font-family:Arial,sans-serif;font-size:12px;}.header{text-align:center;font-weight:bold;margin-bottom:10px;}.line{border-bottom:1px solid #000;margin:5px 0;}</style></head><body>
-                <div class="header">CONTROL DE ATRASOS<br>ESC. AGRICOLA SAGRADOS CORAZONES</div>
-                <div>Fecha: ${new Date().toLocaleDateString()} Hora: ${new Date().toLocaleTimeString()}</div>
-                <div class="line"></div>
-                ${studentsToPrint.map(s => `<div><strong>${s.student}</strong><br>${s.course} - ${s.type}</div><hr style="border:0;border-top:1px dashed #ccc;margin:5px 0;">`).join('')}
-                <div style="text-align:center;margin-top:20px;">_____________________<br>Firma Inspectoría</div>
-            </body></html>`;
-        printWindow(html);
-        studentsToPrint = [];
-        renderStudentsToPrint();
-    };
+            const counts = {};
+            filtered.forEach(a => { const key = `${a.student} (${a.course})`; counts[key] = (counts[key] || 0) + 1; });
+            const sortedRanking = Object.entries(counts).sort(([,a], [,b]) => b - a).slice(0, 5);
 
-    // Imprimir Reporte Diario
-    document.getElementById('print-report-btn').onclick = () => {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const todayData = atrasos.filter(a => (a.dateISO === todayStr) || (a.timestamp.includes(new Date().toLocaleDateString())));
-        
-        if(todayData.length === 0) return showMessageBox('No hay datos hoy.');
+            document.getElementById('analysis-results').classList.remove('hidden');
+            
+            document.getElementById('search-results-body').innerHTML = filtered.map(a => `
+                <tr class="border-b">
+                    <td class="p-2">${a.dateISO || '-'}</td>
+                    <td class="p-2 font-bold text-gray-700">${a.student}</td>
+                    <td class="p-2 text-xs">${a.type}</td>
+                </tr>
+            `).join('');
 
-        const html = `
-            <html><head><style>body{font-family:Arial;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:4px;font-size:10px;}</style></head><body>
-                <h3 style="text-align:center">REPORTE DIARIO DE ATRASOS - ${new Date().toLocaleDateString()}</h3>
-                <table>
-                    <thead><tr><th>Curso</th><th>Alumno</th><th>Tipo</th><th>Hora</th></tr></thead>
-                    <tbody>
-                        ${todayData.map(a => `<tr><td>${a.course}</td><td>${a.student}</td><td>${a.type}</td><td>${a.time}</td></tr>`).join('')}
-                    </tbody>
-                </table>
-            </body></html>`;
-        printWindow(html);
-    };
-
-    function printWindow(html) {
-        const win = window.open('', '_blank');
-        win.document.write(html);
-        win.document.close();
-        win.onload = () => { win.print(); win.close(); };
-    }
-
-    // Renderizar tabla de reporte en pantalla (Solo de HOY)
-    function renderReport() {
-        const todayStr = new Date().toISOString().split('T')[0];
-        // Filtramos para mostrar en el "Reporte Diario" solo lo de hoy
-        const todayData = atrasos.filter(a => {
-            // Soporte para datos nuevos (dateISO) y antiguos (timestamp string)
-            if (a.dateISO) return a.dateISO === todayStr;
-            return a.timestamp.includes(new Date().toLocaleDateString());
+            document.getElementById('ranking-list').innerHTML = sortedRanking.map(([name, count], index) => `
+                <li class="flex justify-between items-center bg-gray-50 p-2 rounded">
+                    <span class="text-xs font-bold text-gray-700 truncate w-3/4">${index + 1}. ${name}</span>
+                    <span class="bg-red-100 text-red-700 px-2 rounded-full text-xs font-bold">${count}</span>
+                </li>
+            `).join('');
         });
 
-        const tbody = document.getElementById('report-body');
-        const table = document.getElementById('report-table');
-        const placeholder = document.getElementById('report-placeholder');
-
-        tbody.innerHTML = '';
-        if (todayData.length > 0) {
-            placeholder.classList.add('hidden');
-            table.classList.remove('hidden');
-            todayData.slice().reverse().forEach((a, idx) => { // Mostrar más recientes primero
-                // El índice real en el array original es necesario para borrar
-                const realIndex = atrasos.indexOf(a); 
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="p-2 border-b">
-                            <div class="font-bold text-gray-700">${a.student}</div>
-                            <div class="text-xs text-gray-500">${a.course}</div>
-                        </td>
-                        <td class="p-2 border-b text-sm">${a.time}</td>
-                        <td class="p-2 border-b">
-                            <button onclick="deleteItem(${realIndex})" class="text-red-500 text-xs hover:underline">Eliminar</button>
-                        </td>
-                    </tr>`;
-            });
-        } else {
-            placeholder.classList.remove('hidden');
-            table.classList.add('hidden');
+        // --- IMPRESIÓN VOUCHERS (4 POR HOJA) ---
+        function renderStudentsToPrint() {
+            const list = document.getElementById('print-list');
+            const container = document.getElementById('print-list-container');
+            list.innerHTML = '';
+            
+            if (studentsToPrint.length > 0) {
+                container.classList.remove('hidden');
+                studentsToPrint.forEach((a, idx) => {
+                    list.innerHTML += `<li class="flex justify-between border-b pb-1 bg-white p-2 rounded shadow-sm mb-1">
+                        <div><span class="font-bold block">${a.student}</span><span class="text-xs text-gray-500">${a.course} - ${a.type}</span></div>
+                        <button class="text-red-500 font-bold px-2 hover:bg-red-50 rounded" onclick="removeFromPrint(${idx})">×</button>
+                    </li>`;
+                });
+            } else {
+                container.classList.add('hidden');
+            }
         }
-    }
 
-    window.deleteItem = (index) => {
-        showMessageBox('¿Eliminar registro?', 'confirm', (yes) => {
-            if(yes) {
+        window.removeFromPrint = (idx) => { studentsToPrint.splice(idx, 1); renderStudentsToPrint(); };
+        document.getElementById('clear-print-list-btn').onclick = () => { studentsToPrint = []; renderStudentsToPrint(); };
+
+        document.getElementById('print-collective-btn').onclick = () => {
+            if(studentsToPrint.length === 0) return;
+            
+            const printable = document.getElementById('printable-area');
+            printable.innerHTML = ''; 
+
+            studentsToPrint.forEach(s => {
+                const card = document.createElement('div');
+                card.className = 'voucher-card';
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #333; padding-bottom:5px; margin-bottom:5px;">
+                        <img src="logo.jpg" style="height:45px;">
+                        <div style="text-align:right;">
+                            <h3 style="margin:0; font-size:16px; font-weight:bold; text-transform:uppercase;">Pase de Ingreso</h3>
+                            <p style="margin:0; font-size:10px; color:#555;">INSPECTORÍA GENERAL</p>
+                        </div>
+                    </div>
+                    
+                    <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
+                        <p style="font-size:10px; color:#666; margin-bottom:2px;">ESTUDIANTE:</p>
+                        <p style="font-size:14px; font-weight:bold; margin:0 0 6px 0; text-transform:uppercase;">${s.student}</p>
+                        
+                        <div style="display:flex; gap:10px;">
+                            <div style="flex:1;">
+                                <p style="font-size:10px; color:#666; margin-bottom:2px;">CURSO:</p>
+                                <p style="font-size:12px; font-weight:bold; margin:0;">${s.course}</p>
+                            </div>
+                            <div style="flex:1;">
+                                <p style="font-size:10px; color:#666; margin-bottom:2px;">HORA:</p>
+                                <p style="font-size:12px; font-weight:bold; margin:0;">${s.time}</p>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top:8px; padding:4px; background:#f0f0f0; border-radius:4px;">
+                            <p style="font-size:9px; color:#666; margin:0;">MOTIVO:</p>
+                            <p style="font-size:11px; font-weight:bold; margin:0;">Atraso - ${s.type}</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:flex-end;">
+                        <div style="text-align:center;">
+                            <div style="border-bottom:1px solid black; width:100px; margin-bottom:2px;"></div>
+                            <p style="font-size:9px;">Firma Inspector</p>
+                        </div>
+                        <p style="font-size:9px; color:#999;">${new Date().toLocaleDateString()}</p>
+                    </div>
+                `;
+                printable.appendChild(card);
+            });
+
+            window.print();
+            studentsToPrint = []; // Vaciar cola tras imprimir
+            renderStudentsToPrint();
+        };
+
+        // --- REPORTE DIARIO (LISTADO COMPLETO) ---
+        document.getElementById('print-report-btn').onclick = () => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            // Buscar atrasos del día (compatible con fecha ISO y string local antiguo)
+            const todayData = atrasos.filter(a => (a.dateISO === todayStr) || (a.timestamp.includes(new Date().toLocaleDateString())));
+            
+            if(todayData.length === 0) return showToast('No hay datos hoy.');
+
+            const printable = document.getElementById('printable-area');
+            
+            // Generar Tabla HTML
+            printable.innerHTML = `
+                <div style="width:100%;">
+                    <h2 style="text-align:center; margin-bottom:10px; font-size:18px;">REPORTE DIARIO DE ATRASOS</h2>
+                    <p style="text-align:center; font-size:12px; margin-bottom:20px;">Fecha: ${new Date().toLocaleDateString()} | Total: ${todayData.length}</p>
+                    
+                    <table style="width:100%; border-collapse:collapse; font-size:11px; page-break-inside: auto;">
+                        <thead style="display: table-header-group;">
+                            <tr style="background:#eee;">
+                                <th style="border:1px solid #999; padding:6px; text-align:left;">Hora</th>
+                                <th style="border:1px solid #999; padding:6px; text-align:left;">Estudiante</th>
+                                <th style="border:1px solid #999; padding:6px; text-align:left;">Curso</th>
+                                <th style="border:1px solid #999; padding:6px; text-align:left;">Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${todayData.map(a => `
+                                <tr style="page-break-inside: avoid; page-break-after: auto;">
+                                    <td style="border:1px solid #999; padding:6px;">${a.time}</td>
+                                    <td style="border:1px solid #999; padding:6px;">${a.student}</td>
+                                    <td style="border:1px solid #999; padding:6px;">${a.course}</td>
+                                    <td style="border:1px solid #999; padding:6px;">${a.type}</td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>
+                    <div style="margin-top:20px; text-align:right; font-size:10px; color:#666;">Generado por ProfeAle System</div>
+                </div>
+            `;
+
+            // Aplicar estilo temporal para imprimir listado (sobrescribe estilo de vouchers)
+            const style = document.createElement('style');
+            style.innerHTML = `
+                @page { size: Letter; margin: 1cm; } 
+                #printable-area { 
+                    display: block !important; 
+                    position: relative !important;
+                    grid-template-columns: none !important;
+                    grid-auto-rows: auto !important;
+                    gap: 0 !important;
+                }
+            `;
+            document.head.appendChild(style);
+            
+            window.print();
+            
+            // Limpiar estilo para volver al modo voucher
+            setTimeout(() => document.head.removeChild(style), 1000);
+        };
+
+        // Renderizar tabla de reporte en pantalla (Solo de HOY)
+        function renderReport() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayData = atrasos.filter(a => {
+                if (a.dateISO) return a.dateISO === todayStr;
+                return a.timestamp.includes(new Date().toLocaleDateString());
+            });
+
+            const tbody = document.getElementById('report-body');
+            const table = document.getElementById('report-table');
+            const placeholder = document.getElementById('report-placeholder');
+
+            tbody.innerHTML = '';
+            if (todayData.length > 0) {
+                placeholder.classList.add('hidden');
+                table.classList.remove('hidden');
+                todayData.slice().reverse().forEach((a, idx) => {
+                    const realIndex = atrasos.indexOf(a); 
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-2 border-b text-sm font-mono text-blue-600">${a.time}</td>
+                            <td class="p-2 border-b">
+                                <div class="font-bold text-gray-700 text-xs">${a.student}</div>
+                                <div class="text-[10px] text-gray-500">${a.course} • ${a.type}</div>
+                            </td>
+                            <td class="p-2 border-b text-right">
+                                <button onclick="deleteItem(${realIndex})" class="text-red-500 text-xs hover:bg-red-50 p-1 rounded">🗑️</button>
+                            </td>
+                        </tr>`;
+                });
+            } else {
+                placeholder.classList.remove('hidden');
+                table.classList.add('hidden');
+            }
+        }
+
+        window.deleteItem = (index) => {
+            if(confirm('¿Eliminar este registro?')) {
                 atrasos.splice(index, 1);
                 localStorage.setItem('atrasos', JSON.stringify(atrasos));
                 renderReport();
             }
-        });
-    };
+        };
 
-    document.getElementById('clear-data-btn').onclick = () => {
-        showMessageBox('¿Borrar TODO el historial? Irreversible.', 'confirm', (yes) => {
-            if(yes) {
+        document.getElementById('clear-data-btn').onclick = () => {
+            if(confirm('¿Borrar TODO el historial de atrasos? Esta acción no se puede deshacer.')) {
                 localStorage.removeItem('atrasos');
                 atrasos = [];
                 renderReport();
+                showToast('Historial borrado.');
             }
-        });
-    };
+        };
 
-    function showMessageBox(msg, type = 'alert', cb) {
-        document.getElementById('message-box-text').innerText = msg;
-        document.getElementById('message-box-overlay').style.display = 'block';
-        document.getElementById('message-box').style.display = 'flex';
-        const ok = document.getElementById('message-box-ok');
-        const cancel = document.getElementById('message-box-cancel');
-        
-        cancel.classList.add('hidden');
-        
-        if (type === 'confirm') {
-            cancel.classList.remove('hidden');
-            cancel.onclick = () => { closeMsg(); if(cb) cb(false); };
-            ok.onclick = () => { closeMsg(); if(cb) cb(true); };
-        } else {
-            ok.onclick = closeMsg;
+        function showToast(msg) {
+            const box = document.getElementById('message-box');
+            box.innerText = msg;
+            box.classList.remove('hidden');
+            setTimeout(() => box.classList.add('hidden'), 3000);
         }
-    }
 
-    function closeMsg() {
-        document.getElementById('message-box-overlay').style.display = 'none';
-        document.getElementById('message-box').style.display = 'none';
-    }
-
-    function showPrintAlert() {
-        if (new Date().getHours() >= 15) document.getElementById('print-alert').classList.remove('hidden');
-    }
-</script>
-
+        function showPrintAlert() {
+            if (new Date().getHours() >= 17) document.getElementById('print-alert').classList.remove('hidden');
+        }
+    </script>
 </body>
 </html>
