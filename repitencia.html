@@ -28,14 +28,31 @@
         }
         input.editable:focus { outline: none; border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2); }
 
-        /* --- MEJORAS DE IMPRESIÓN (SOLUCIÓN BORDES Y CORTE) --- */
+        /* Estilo Hoja de Vida (Tutoría) en Pantalla */
+        .sheet-paper {
+            background: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            font-family: 'Times New Roman', serif;
+            color: black;
+            min-height: 800px;
+        }
+        .sheet-table th, .sheet-table td { border: 1px solid black; padding: 4px 8px; font-size: 10pt; vertical-align: top; }
+        .sheet-table th { background-color: #f3f4f6; font-weight: bold; text-transform: uppercase; font-size: 9pt; }
+
+        /* --- MEJORAS DE IMPRESIÓN --- */
         @media print {
             body { background: white; }
             body * { visibility: hidden; } 
             
-            #print-zone {
+            #print-zone, #print-zone * {
                 visibility: visible !important;
                 display: block !important;
+                -webkit-print-color-adjust: exact; /* Fuerza impresión de colores e imágenes */
+                print-color-adjust: exact;
+            }
+            #print-zone {
                 position: absolute;
                 left: 0;
                 top: 0;
@@ -44,66 +61,30 @@
                 padding: 0;
                 background: white;
             }
-            #print-zone * {
-                visibility: visible !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
             
+            /* Asegurar que las imágenes (logo) se vean */
+            img { display: block !important; visibility: visible !important; }
+
             .no-print { display: none !important; }
+            @page { size: letter; margin: 1.5cm; } 
             
-            /* MARGEN DE SEGURIDAD PARA QUE NO CORTE LA IMPRESORA */
-            @page { size: letter; margin: 2.5cm; } 
-            
-            /* TIPOGRAFÍA AUMENTADA PARA DISTRIBUCIÓN EN 2 HOJAS */
             .doc-container { 
                 font-family: 'Times New Roman', serif; 
                 color: black; 
-                line-height: 1.5; /* Más aire entre líneas */
-                font-size: 12pt;  /* Letra más grande (antes 11pt) */
+                line-height: 1.3;
+                font-size: 11pt;
             }
-
-            .doc-header { display: flex; justify-content: space-between; border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 30px; }
-            .doc-title { text-align: center; font-weight: bold; font-size: 15pt; text-decoration: underline; margin-bottom: 25px; text-transform: uppercase; }
+            .doc-header { display: flex; justify-content: space-between; border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 20px; }
+            .doc-title { text-align: center; font-weight: bold; font-size: 14pt; text-decoration: underline; margin-bottom: 20px; text-transform: uppercase; }
+            .doc-section { font-weight: bold; border-bottom: 1px solid #000; margin-top: 20px; margin-bottom: 10px; font-size: 11pt; text-transform: uppercase; }
+            .doc-box { border: 1px solid #000; padding: 10px; min-height: 50px; white-space: pre-wrap; text-align: justify; margin-bottom: 10px; }
+            .doc-signatures { display: flex; justify-content: space-between; margin-top: 80px; page-break-inside: avoid; }
+            .doc-sign-line { width: 40%; border-top: 1px solid black; text-align: center; font-weight: bold; padding-top: 5px; font-size: 10pt; }
             
-            .doc-section { 
-                font-weight: bold; 
-                border-bottom: 1px solid #000; 
-                margin-top: 25px; 
-                margin-bottom: 15px; 
-                font-size: 12pt; 
-                text-transform: uppercase;
-                page-break-after: avoid; /* No romper justo después del título */
-            }
-
-            .doc-field { margin-bottom: 8px; }
-            
-            /* CAJAS DE TEXTO PROTEGIDAS CONTRA CORTES */
-            .doc-box { 
-                border: 1px solid #000; /* Borde negro sólido para mejor contraste */
-                padding: 12px; 
-                min-height: 60px; 
-                white-space: pre-wrap; 
-                text-align: justify; 
-                margin-bottom: 15px;
-                page-break-inside: avoid; /* CRÍTICO: Evita que el cuadro se parta en dos páginas */
-                background-color: #fff;
-            }
-
-            /* FIRMAS EN LA SEGUNDA HOJA */
-            .doc-signatures { 
-                display: flex; 
-                justify-content: space-between; 
-                margin-top: 100px; /* Empujar hacia abajo */
-                page-break-inside: avoid; /* No romper las firmas */
-            }
-            .doc-sign-line { width: 40%; border-top: 1px solid black; text-align: center; font-weight: bold; padding-top: 10px; font-size: 11pt; }
-            
-            /* GRÁFICO VISUAL */
-            .visual-bar-container { display: flex; align-items: center; margin-bottom: 8px; font-size: 10pt; }
-            .visual-bar-label { width: 160px; font-weight: bold; }
-            .visual-bar-track { flex-grow: 1; background-color: #eee; height: 14px; border-radius: 0; overflow: hidden; border: 1px solid #000; max-width: 350px; }
-            .visual-bar-fill { height: 100%; }
+            /* Tablas de Tutoría para Impresión */
+            table.print-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 10pt; }
+            table.print-table th, table.print-table td { border: 1px solid black; padding: 5px; text-align: left; vertical-align: top; }
+            table.print-table th { background-color: #eee !important; -webkit-print-color-adjust: exact; font-weight: bold; text-align: center; }
         }
     </style>
 </head>
@@ -150,7 +131,7 @@
             <button onclick="switchTab('ficha')" id="btn-ficha" class="tab-btn active flex-1 py-3 px-2 text-sm"><i class="fas fa-id-card"></i> Ficha</button>
             <button onclick="switchTab('analisis')" id="btn-analisis" class="tab-btn flex-1 py-3 px-2 text-sm"><i class="fas fa-chart-pie"></i> Análisis</button>
             <button onclick="switchTab('decision')" id="btn-decision" class="tab-btn flex-1 py-3 px-2 text-sm"><i class="fas fa-gavel"></i> Resolución</button>
-            <button onclick="switchTab('tutoria')" id="btn-tutoria" class="tab-btn flex-1 py-3 px-2 text-sm"><i class="fas fa-hands-helping"></i> Tutoría</button>
+            <button onclick="switchTab('tutoria')" id="btn-tutoria" class="tab-btn flex-1 py-3 px-2 text-sm"><i class="fas fa-hands-helping"></i> Tutoría (Bitácora)</button>
             <button onclick="switchTab('historial')" id="btn-historial" class="tab-btn flex-1 py-3 px-2 text-sm bg-yellow-50 text-yellow-800 font-bold border-yellow-200"><i class="fas fa-folder-open"></i> 5. Gestión e Historial</button>
         </div>
 
@@ -159,9 +140,9 @@
             <div id="tab-ficha" class="view-section">
                 <h3 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Identificación del Estudiante</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label class="text-xs font-bold text-gray-500">Nombre Completo</label><input type="text" id="inp-nombre" class="editable font-bold"></div>
+                    <div><label class="text-xs font-bold text-gray-500">Nombre Completo</label><input type="text" id="inp-nombre" class="editable font-bold" oninput="updateTutoriaHeader()"></div>
                     <div><label class="text-xs font-bold text-gray-500">RUT</label><input type="text" id="inp-rut" class="editable font-bold"></div>
-                    <div><label class="text-xs font-bold text-gray-500">Curso</label><input type="text" id="inp-curso" class="editable"></div>
+                    <div><label class="text-xs font-bold text-gray-500">Curso</label><input type="text" id="inp-curso" class="editable" oninput="updateTutoriaHeader()"></div>
                     <div><label class="text-xs font-bold text-gray-500">Profesor Jefe / Tutor</label><input type="text" id="inp-profesor" class="editable"></div>
                 </div>
             </div>
@@ -209,18 +190,149 @@
             </div>
 
             <div id="tab-tutoria" class="view-section hidden">
-                <h3 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Plan de Acompañamiento</h3>
-                <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><label class="text-xs font-bold text-gray-500">Profesor Tutor</label><input type="text" id="inp-tutor" class="editable"></div>
-                        <div><label class="text-xs font-bold text-gray-500">Fecha Informe</label><input type="date" id="inp-fecha-tut" class="editable"></div>
+                <div class="flex flex-col lg:flex-row gap-6">
+                    
+                    <div class="w-full lg:w-1/3 space-y-4">
+                        
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                            <h3 class="text-sm font-bold text-blue-900 uppercase mb-3 border-b border-blue-200 pb-1">Nuevo Registro</h3>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-xs font-bold text-gray-500">Semestre</label>
+                                    <select id="tut-semestre" class="w-full p-2 border rounded bg-white">
+                                        <option value="1">1° Semestre</option>
+                                        <option value="2">2° Semestre</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-gray-500">Fecha Entrevista</label>
+                                    <input type="date" id="tut-fecha" class="w-full p-2 border rounded">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-gray-500">Observación / Tema Tratado</label>
+                                    <textarea id="tut-obs" rows="3" class="w-full p-2 border rounded" placeholder="Ej: Revisión de notas parciales..."></textarea>
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-gray-500">Acuerdos / Compromisos</label>
+                                    <textarea id="tut-acuerdos" rows="3" class="w-full p-2 border rounded" placeholder="Ej: Estudiar para prueba de..."></textarea>
+                                </div>
+                                
+                                <button onclick="addTutoriaRow()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded shadow transition">
+                                    <i class="fas fa-plus-circle"></i> Agregar a la Hoja
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+                            <details>
+                                <summary class="font-bold text-yellow-800 text-sm cursor-pointer hover:text-yellow-900 flex items-center gap-2">
+                                    <i class="fas fa-lightbulb"></i> Tips para Redacción Formal
+                                </summary>
+                                <div class="mt-3 text-xs text-gray-700 space-y-2">
+                                    <p><strong>Verbos para Observaciones:</strong></p>
+                                    <ul class="list-disc pl-4 italic">
+                                        <li>Se evidencia dificultad en...</li>
+                                        <li>Manifiesta interés por...</li>
+                                        <li>Se observa un descenso en...</li>
+                                        <li>Presenta inasistencias injustificadas...</li>
+                                    </ul>
+                                    <p><strong>Verbos para Acuerdos:</strong></p>
+                                    <ul class="list-disc pl-4 italic">
+                                        <li>Se compromete a asistir a...</li>
+                                        <li>Regularizará entrega de...</li>
+                                        <li>Mantendrá comunicación vía...</li>
+                                        <li>Apoderado supervisará estudio...</li>
+                                    </ul>
+                                </div>
+                            </details>
+                        </div>
+
+                        <hr class="border-blue-200">
+                        
+                        <div>
+                            <label class="text-xs font-bold text-gray-500">Profesor Tutor (Firma)</label>
+                            <input type="text" id="inp-tutor" class="w-full p-2 border rounded mb-2" placeholder="Nombre Profesor" oninput="updateTutoriaHeader()">
+                        </div>
+
+                        <button onclick="printReport('tutoria')" class="w-full bg-gray-800 text-white font-bold py-3 rounded shadow hover:bg-black transition">
+                            <i class="fas fa-print"></i> IMPRIMIR PLANILLA
+                        </button>
                     </div>
-                    <div><label class="text-xs font-bold text-gray-500">Registro de Acciones y Acuerdos</label><textarea id="inp-acciones" class="editable h-64"></textarea></div>
-                </div>
-                <div class="mt-6 text-center">
-                    <button onclick="printReport('tutoria')" class="bg-blue-600 text-white px-8 py-3 rounded-full hover:bg-blue-700 font-bold shadow-lg">
-                        <i class="fas fa-print"></i> IMPRIMIR INFORME TUTORÍA
-                    </button>
+
+                    <div class="w-full lg:w-2/3 overflow-y-auto bg-gray-200 p-4 rounded border-inner shadow-inner flex justify-center">
+                        <div id="hoja-tutoria-visual" class="sheet-paper w-full max-w-[21cm]">
+                            
+                            <div class="flex justify-between border-b-2 border-black pb-2 mb-4">
+                                <div class="flex items-center gap-4">
+                                    <img src="logo.jpg" alt="Logo Colegio" style="height: 60px; width: auto; object-fit: contain;">
+                                    <div class="text-left">
+                                        <h2 class="font-bold text-lg uppercase leading-tight">Escuela Agrícola<br>Sagrados Corazones</h2>
+                                        <p class="text-xs italic">Unidad Técnico Pedagógica</p>
+                                    </div>
+                                </div>
+                                <div class="text-right text-xs pt-2">
+                                    <p><strong>REGISTRO DE ACOMPAÑAMIENTO</strong></p>
+                                    <p>Decreto Evaluación 67</p>
+                                </div>
+                            </div>
+
+                            <table class="w-full text-sm mb-6">
+                                <tr>
+                                    <td class="font-bold w-24">ESTUDIANTE:</td>
+                                    <td class="border-b border-black px-2" id="view-nombre"></td>
+                                    <td class="font-bold w-16 text-right px-2">CURSO:</td>
+                                    <td class="border-b border-black w-20 text-center" id="view-curso"></td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold pt-2">TUTOR:</td>
+                                    <td class="border-b border-black px-2 pt-2" colspan="3" id="view-tutor"></td>
+                                </tr>
+                            </table>
+
+                            <div class="mb-6">
+                                <div class="bg-gray-200 border border-black text-center font-bold text-xs py-1 uppercase">Primer Semestre</div>
+                                <table class="w-full sheet-table border-collapse" id="table-sem1">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 80px;">FECHA</th>
+                                            <th>OBSERVACIONES / TEMAS TRATADOS</th>
+                                            <th>ACUERDOS Y COMPROMISOS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        </tbody>
+                                </table>
+                            </div>
+
+                            <div class="mb-8">
+                                <div class="bg-gray-200 border border-black text-center font-bold text-xs py-1 uppercase">Segundo Semestre</div>
+                                <table class="w-full sheet-table border-collapse" id="table-sem2">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 80px;">FECHA</th>
+                                            <th>OBSERVACIONES / TEMAS TRATADOS</th>
+                                            <th>ACUERDOS Y COMPROMISOS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        </tbody>
+                                </table>
+                            </div>
+
+                            <div class="mt-12 flex justify-between px-8 text-center text-xs">
+                                <div class="w-5/12 border-t border-black pt-1">
+                                    <span class="font-bold block" id="view-sign-tutor"></span>
+                                    Firma Profesor Tutor
+                                </div>
+                                <div class="w-5/12 border-t border-black pt-1">
+                                    <span class="font-bold block">Estudiante / Apoderado</span>
+                                    Toma de Conocimiento
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -255,7 +367,7 @@
     <div id="print-zone" class="hidden"></div>
 
     <script>
-        // === 1. CONFIGURACIÓN FIREBASE ANTIGUA (TUS DATOS 2025) ===
+        // === 1. CONFIGURACIÓN FIREBASE ANTIGUA (TUS DATOS 2025) - INTACTA ===
         const firebaseConfig = {
             apiKey: "AIzaSyAisxzJVm2OzjYEXSi4Q7HxZEUG_aarQwo",
             authDomain: "notas-liceo-agricola-sscc.firebaseapp.com",
@@ -269,7 +381,7 @@
         const SCHOOL_NAME = "Escuela Agrícola Sagrados Corazones"; 
         const LOCATION = "Villa Alegre";
 
-        // NÓMINA 2025
+        // NÓMINA 2025 (Misma lista que enviaste)
         const STUDENTS_2025 = [
             ['2A', '23376817-0', 'EMILYA ANTONIA', 'ALBURQUENQUE DEL GRECO'], ['2A', '22922460-3', 'BENJAMÍN NICOLÁS', 'ANABALÓN BELTRÁN'], ['2A', '23355953-9', 'HADEEY ALEJANDRA', 'CONTRERAS SALGADO'], ['2A', '23560082-K', 'AGUSTÍN ALEXIS', 'FERRADA ALBORNOZ'], ['2A', '23644472-4', 'FERNANDA MAGDALENA', 'IBÁÑEZ GONZÁLEZ'], ['2A', '23389072-3', 'ALEXANDRA DANAE', 'LAGOS LASTRA'], ['2A', '23498596-5', 'LUCIANO ANTONIO', 'LÓPEZ LÓPEZ'], ['2A', '23396870-6', 'ANTONELLA BELÉN', 'MALDONADO FLORES'], ['2A', '22793858-7', 'IGNACIO ANTONIO', 'MARIN MARÍN'], ['2A', '23548214-2', 'VALESKA BELÉN', 'MONTECINO DÍAZ'], ['2A', '23366642-4', 'LUIS GABRIEL', 'MUÑOZ CONTRERAS'], ['2A', '23622121-0', 'ROGER JOEL', 'MUÑOZ LUNA'], ['2A', '23329866-2', 'KARLA PAZ', 'NAVARRO VILLANUEVA'], ['2A', '23388136-8', 'SEBASTIÁN ANDRÉS', 'ORELLANA ARRIAGADA'], ['2A', '23640108-1', 'FELIPE ALONSO', 'QUEZADA NARANJO'], ['2A', '23529637-3', 'FERNANDA FLORENCIA', 'QUINTEROS VERGARA'], ['2A', '23534317-7', 'DUVAN EMILIO', 'RAMÍREZ VILLALOBOS'], ['2A', '23679554-3', 'MARÍA JOSÉ', 'SANTANDER LÓPEZ'], ['2A', '23631475-8', 'JEANFRANCO PATRICK', 'TAPIA CASTILLA'], ['2A', '23007625-1', 'FRANCHESCA POULETTE', 'URBINA CÁCERES'], ['2A', '23584521-0', 'AMANDA ISABEL', 'VÁSQUEZ ZALDUENDO'], ['2A', '23404221-1', 'DAMIÁN ANDRÉS', 'ZABALAGA COFRÉ'], ['2A', '23461777-K', 'LUKAS ALFONSO', 'BAEZ DONOSO'], ['2A', '23032545-6', 'GONZALO IGNACIO', 'MESA DÍAZ'], ['2A', '23367234-3', 'NOEMÍ DE JESÚS DE LAS ESTRELLAS', 'ARAVENA ZÚÑIGA'], ['2A', '22826488-1', 'CRISTÓBAL ANTONIO', 'ASTUDILLO CAMPOS'], ['2A', '23251746-8', 'BRUNO FERNANDO LEÓN', 'ASTUDILLO VÁSQUEZ'], ['2A', '23545428-9', 'CATALINA ANDREA', 'CUMINAO VIDAL'], ['2A', '23224652-9', 'MIGUEL ALBERTO', 'DÍAZ MALUENDA'], ['2A', '23337375-3', 'DIDIER EZEQUIEL', 'KILTAN GONZÁLEZ'], ['2A', '23355954-7', 'MARCO EMILIO', 'LÓPEZ ACUÑA'], ['2A', '23153879-8', 'EYDAN DAMIÁN', 'LÓPEZ NOVOA'], ['2A', '20760552-2', 'FABIÁN FELIPE', 'MÉNDEZ SUAZO'], ['2A', '23391772-9', 'MATEO ANTONIO BENJAMÍN', 'MOYA REYES'], ['2A', '23432193-5', 'VALENTINA ABIGAIL', 'OSES CAMPOS'], ['2A', '23190411-5', 'ANTONELLA FRANCISCA', 'PALMA ORELLANA'], ['2A', '23605196-K', 'MONSERRAT ALAMIRA', 'PEREIRA ORELLANA'], ['2A', '23415461-3', 'ZADKA ALEJANDRA', 'PÉREZ ORMAZÁBAL'], ['2A', '23290841-6', 'FLORENCIA TRINIDAD', 'ROJAS GONZÁLEZ'], ['2A', '23264828-7', 'EDUARDO JAVIER', 'ROJAS LEIVA'], ['2A', '22763630-0', 'SCARLET NICOLE', 'VÁSQUEZ AGUILERA'], ['2A', '23616701-1', 'BRAYAN DAMIÁN', 'YÁÑEZ GONZÁLEZ'], ['2A', '23555453-4', 'MARTINA SAYEN', 'VARGAS MORAGA'], ['2A', '23301500-8', 'PEDRO JOSÉ', 'SALAZAR SALAS'], ['2A', '23296637-8', 'FLORENCIA ANTONIA', 'VERA BRAVO'], ['2A', '23479449-3', 'CONSTANZA TRINIDAD', 'PÉREZ QUEVEDO'], ['2A', '23112966-9', 'BENJAMÍN ALONSO', 'RIQUELME SANTOS'], ['3A', '23006149-1', 'TRINIDAD BELÉN', 'AHUMADA ROJAS'], ['3A', '23090163-5', 'FERNANDA ELENA', 'ESPINOSA TORRES'], ['3A', '23236242-1', 'BRAYAN JESÚS', 'ESPINOZA PEÑALILLO'], ['3A', '23121508-5', 'EMILIA CATALINA', 'GONZÁLEZ SALAZAR'], ['3A', '23132468-2', 'LEÓN IGNACIO', 'MEDEL OJEDA'], ['3A', '22617512-1', 'ALFONSO TOMÁS', 'MORALES REIMÁN'], ['3A', '23054557-K', 'MAXIMILIANO EDUARDO', 'PEREIRA HORMAZÁBAL'], ['3A', '23029359-7', 'JORDÁN AMARO', 'PINTO TOBAR'], ['3A', '23086976-6', 'KEVIN ANDRÉS', 'RECABAL YÁÑEZ'], ['3A', '23284002-1', 'MATÍAS EDUARDO ANTONIO', 'RIQUELME CASTILLO'], ['3A', '23141589-0', 'CONSTANZA VICTORIA', 'RIVERA ABARZA'], ['3A', '23294557-5', 'TEIVA SCARLETT', 'SANTIS CASSEUS'], ['3A', '22912548-6', 'KATHERINNE ALEXIA BELÉN', 'SOBARZO YÉVENES'], ['3A', '23209204-1', 'ANTONELLA INES', 'TOLEDO ALBORNOZ'], ['3A', '23115030-7', 'ANTONIA EDITH', 'VENEGAS ARRIAGADA'], ['3A', '23146366-6', 'JOAN MANUEL', 'VIELMA ZABALAGA'], ['3A', '23255825-3', 'ANGEL BLAS', 'MEZA COLIMÁN'], ['3A', '23164383-4', 'FLORENCIA ALEJANDRA', 'SAAVEDRA BRAVO'], ['3C', '22927087-7', 'ALEX FABIÁN', 'ARAYA DOMÍNGUEZ'], ['3C', '23099931-7', 'ALEX JOHAN', 'BRAVO MENARES'], ['3C', '23200990-K', 'BENJAMÍN IGNACIO', 'CARRASCO LEIVA'], ['3C', '23086622-8', 'CONSTANZA PRISILA (DANIEL)', 'CARVAJAL URRUTIA'], ['3C', '23194660-8', 'DIEGO BENJAMÍN ALEXANDER', 'ENCINA PIZARRO'], ['3C', '23229539-2', 'ALEJANDRO ANTONIO', 'FAÚNDEZ NORAMBUENA'], ['3C', '22827535-2', 'EMILIO SCOTT', 'JARAMILLO VILLAR'], ['3C', '23321258-K', 'MARTÍN ALONSO', 'LÓPEZ VILLAR'], ['3C', '23285276-3', 'ALEXANDRA JAVIERA', 'MIRANDA MUÑOZ'], ['3C', '22459961-7', 'HÉCTOR ANTONIO', 'MUÑOZ TRONCOSO'], ['3C', '23097156-0', 'ALONSO IGNACIO', 'OLIVARES VALENZUELA'], ['3C', '22804086-K', 'ANTONELLA DANAE IGNACIA', 'OLIVARES VALENZUELA'], ['3C', '22876195-8', 'MATÍAS LEANDRO', 'ORELLANA GARRIDO'], ['3C', '23113000-4', 'MILLARAY ANGÉLICA', 'PUNOY MEDEL'], ['3C', '23118361-2', 'CRISTÓBAL PATRICIO', 'QUIÑENAO MUÑOZ'], ['3C', '23244598-K', 'DALIA CONSTANZA', 'RIQUELME COLOMA'], ['3C', '23304433-4', 'VICENTE MOISÉS', 'SALGADO ROJAS'], ['3C', '22922664-9', 'VICENTE ESTEBAN', 'SANDOVAL CERPA'], ['3C', '23230279-8', 'CHRISTOPHER', '', 'SOTO NARANJO'], ['3C', '22907717-1', 'MARTÍN', '', 'VEKARIC VERDEJO'],
             ['4A', '22717035-2', 'MARTINA ALEJANDRA', 'ALCÁNTAR GARCÍA'], ['4A', '22202028-K', 'ARIEL LEON', 'BAHAMONDE MUÑOZ'], ['4A', '22932851-4', 'CRISTOPHER JESÚS', 'CAMPOS MUÑOZ'], ['4A', '22587064-0', 'VICENTE GASPAR', 'CANCINO ORÓSTICA'], ['4A', '22935345-4', 'CAMILA ANDREA', 'CARRASCO GONZÁLEZ'], ['4A', '22852052-7', 'ANTONIO ANDRÉS', 'COFRÉ CASTILLO'], ['4A', '22542992-8', 'BELÉN ALEJANDRA', 'CONTRERAS VENEGAS'], ['4A', '22897408-0', 'FELIPE ESTEBAN', 'GALDAMES VERGARA'], ['4A', '22152106-4', 'SANTIAGO HUMBERTO', 'GARCÍA GONZÁLEZ'], ['4A', '22820588-5', 'FRANCISCA IGNACIA', 'GONZÁLEZ AMIGO'], ['4A', '22565627-4', 'JOAQUÍN ALONSO', 'GONZÁLEZ SALAZAR'], ['4A', '22808692-4', 'ANGEL MARTÍN', 'GUTIÉRREZ GUTIÉRREZ'], ['4A', '22970003-0', 'AARON ALEJANDRO', 'MARTÍNEZ LIZANA'], ['4A', '22482618-4', 'BENJAMÍN INTI', 'MEZA CARRASCO'], ['4A', '22858572-6', 'CATALINA ANDREA', 'MIÑO GONZALEZ'], ['4A', '22932822-0', 'RENATO IGNACIO', 'MORAGA PACHECO'], ['4A', '22839912-4', 'MANUEL IGNACIO', 'PÉREZ CORÓN'], ['4A', '100710921-7', 'JAKSON FERGIE', 'SAMANIEGO CORTEZ'], ['4A', '22889391-9', 'SOFÍA ANTONIA', 'SEPÚLVEDA SALAZAR'], ['4A', '22709426-5', 'GABRIEL ANTONIO', 'TAPIA ACUÑA'], ['4A', '23022549-4', 'CRISTÓBAL ANTONIO', 'VEGA VIVANCO'], ['4A', '22903476-6', 'DANIELA ELIZABETH', 'VERA NAVARRETE'], ['4A', '22792420-9', 'KARINA ANGELINA', 'VILLALOBOS ARAVENA'], ['4A', '22733377-4', 'SAMIR LUCIAN JESUS', 'VILLALOBOS VILLALOBOS'], ['4A', '22644932-9', 'VICENTE ALEJANDRO', 'HERNÁNDEZ SEPÚLVEDA'], ['4A', '100793606-7', 'FLORVELIS DE LOS ANGELES', 'TORREALBA MOYA'], ['4A', '23038091-0', 'CONSUELO ANTONIA', 'CARO URRUTIA'], ['4A', '22448022-9', 'ANTONIA PAZ', 'LOBOS CÁCERES'], ['4C', '22558171-1', 'MARTÍN ANTONIO', 'ARELLANO ACUÑA'], ['4C', '22897577-K', 'DAYANA IGNACIA', 'AROS ÁVILA'], ['4C', '22339310-1', 'MARÍA GRACIA', 'CABRERA COLOMBINO'], ['4C', '22865819-7', 'YARIXA ALEJANDRA', 'FUENTES CARRASCO'], ['4C', '22971225-K', 'DANIELA ALEJANDRA', 'GÓMEZ CANCINO'], ['4C', '22698950-1', 'MILLARAY CAROLINA', 'GUTIÉRREZ CARRIÓN'], ['4C', '22665539-5', 'GLORIA JAVIERA', 'HONORATO TAPIA'], ['4C', '22907525-K', 'BENJAMÍN ESTEBAN', 'LARA RIVERA'], ['4C', '22801082-0', 'JOSÉ TOMÁS', 'PALACIOS SOTO'], ['4C', '22477831-7', 'JOSÉ CRISTÓBAL', 'PEZO SANTANDER'], ['4C', '22796354-9', 'JOSÉ PABLO WILLIAMS', 'ROCHA ROJAS'], ['4C', '22876139-7', 'FABIANA ISIDORA', 'ROJAS YÉVENES'], ['4C', '22916573-9', 'ANDY ANTONIO', 'SÁNCHEZ PAREJA'], ['4C', '22845486-9', 'SIMÓN ESTEBAN', 'SANTANDER LÓPEZ'], ['4C', '23004590-9', 'SIOMARA IGNACIA', 'TRONCOSO LIZAMA'], ['4C', '23009921-9', 'LUCIANA BERNABELA', 'WARNKEN ROJAS'], ['4C', '22783846-9', 'FRANCO SEBASTIÁN', 'DE LA HOZ VALENZUELA'], ['4C', '23048274-8', 'ANAÍS VALENTINA', 'COLLAO MEDINA']
@@ -289,6 +401,10 @@
                 document.getElementById('connection-status').classList.add('bg-green-600', 'text-white');
                 populateDropdowns();
                 loadHistory(); 
+                
+                // Fecha de hoy por defecto en tutoría
+                document.getElementById('tut-fecha').valueAsDate = new Date();
+                
             }).catch((error) => {
                 console.error("Error Auth:", error);
                 document.getElementById('connection-status').innerText = "Error Conexión ❌";
@@ -324,9 +440,13 @@
             const rut = document.getElementById('student-select').value;
             const student = STUDENTS_2025.find(s => s[1] === rut);
             if(student) {
-                document.getElementById('inp-nombre').value = `${student[3]} ${student[2]}`;
+                const fullName = `${student[3]} ${student[2]}`;
+                document.getElementById('inp-nombre').value = fullName;
                 document.getElementById('inp-rut').value = student[1];
                 document.getElementById('inp-curso').value = student[0];
+                
+                // Actualizar encabezado de Tutoría también
+                updateTutoriaHeader();
             }
         };
 
@@ -383,7 +503,7 @@
                 tutoria: {
                     tutor1: document.getElementById('inp-tutor').value,
                     reportDate: document.getElementById('inp-fecha-tut').value,
-                    sem2: { agreements: document.getElementById('inp-acciones').value } 
+                    sem2: { agreements: document.getElementById('inp-acciones').value } // Guardado legacy
                 },
                 savedAt: new Date().toISOString()
             };
@@ -443,67 +563,118 @@
                     document.getElementById('inp-asignaturas').value = d.academic?.failedSubjectsText || d.decision?.failedSubjects || '';
                     document.getElementById('inp-asistencia').value = d.decision?.attendance || '';
                     
+                    // Tutoría (Solo carga campo simple legado, pero actualiza header)
                     document.getElementById('inp-tutor').value = d.tutoria?.tutor1 || '';
-                    const acc1 = d.tutoria?.sem1?.agreements || "";
-                    const acc2 = d.tutoria?.sem2?.agreements || "";
-                    document.getElementById('inp-acciones').value = (acc1 + "\n" + acc2).trim() || d.tutoria?.sem2?.agreements || "";
                     
                     updateChart();
+                    updateTutoriaHeader(); // Actualizar hoja visual
                     switchTab('ficha');
                     Swal.fire('Cargado', 'Informe recuperado.', 'success');
                 }
             } catch (e) { console.error(e); }
         };
 
-        // --- IMPRESIÓN (CON GRÁFICO VISUAL CSS) ---
+        // --- LÓGICA DE PESTAÑAS ---
+        window.switchTab = (tab) => {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`btn-${tab}`).classList.add('active');
+            
+            if(tab === 'historial') loadHistory();
+            if(tab === 'analisis') setTimeout(updateChart, 200);
+        }
+
+        // --- NUEVA LÓGICA DE TUTORÍA ---
+        
+        // 1. Actualizar Encabezado de la Hoja
+        window.updateTutoriaHeader = () => {
+            document.getElementById('view-nombre').textContent = document.getElementById('inp-nombre').value;
+            document.getElementById('view-curso').textContent = document.getElementById('inp-curso').value;
+            document.getElementById('view-tutor').textContent = document.getElementById('inp-tutor').value;
+            document.getElementById('view-sign-tutor').textContent = document.getElementById('inp-tutor').value;
+        };
+
+        // 2. Agregar Fila a la Hoja Visual
+        window.addTutoriaRow = () => {
+            const sem = document.getElementById('tut-semestre').value;
+            const fechaInp = document.getElementById('tut-fecha').value;
+            const obs = document.getElementById('tut-obs').value;
+            const acu = document.getElementById('tut-acuerdos').value;
+
+            if(!fechaInp || !obs) return Swal.fire('Falta información', 'Ingresa al menos fecha y observación.', 'warning');
+
+            // Formatear fecha (dd/mm)
+            const parts = fechaInp.split('-');
+            const fechaStr = `${parts[2]}/${parts[1]}`;
+
+            const tbody = document.getElementById(sem === '1' ? 'table-sem1' : 'table-sem2').querySelector('tbody');
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="font-bold border px-2 py-1 align-top">${fechaStr}</td>
+                <td class="border px-2 py-1 align-top">${obs}</td>
+                <td class="border px-2 py-1 align-top italic text-gray-700">${acu || '-'}</td>
+            `;
+            
+            // Doble clic para borrar
+            tr.ondblclick = function() { if(confirm('¿Borrar esta línea?')) this.remove(); };
+            tr.title = "Doble clic para borrar esta fila";
+            
+            tbody.appendChild(tr);
+
+            // Limpiar inputs
+            document.getElementById('tut-obs').value = '';
+            document.getElementById('tut-acuerdos').value = '';
+        };
+
+        // --- IMPRESIÓN MEJORADA (DISTINGUE TIPO) ---
         window.printReport = (type) => {
             const getVal = (id) => document.getElementById(id).value || "---";
-            
-            // Cálculos para gráfico visual en papel
-            const p1 = parseFloat(getVal('inp-sem1')) || 0;
-            const p2 = parseFloat(getVal('inp-sem2')) || 0;
-            const promAlumno = ((p1 + p2) / 2).toFixed(1);
-            const promCurso = parseFloat(getVal('inp-prom-curso')) || 5.5;
-            
-            // Porcentajes para barra (Escala 7.0 = 100%)
-            const pctAlumno = Math.min((promAlumno / 7) * 100, 100);
-            const pctCurso = Math.min((promCurso / 7) * 100, 100);
-            const colorAlumno = promAlumno < 4.0 ? '#ef4444' : '#3b82f6';
+            let content = '';
 
-            const visualGraph = `
-                <div style="margin-top:10px; border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:15px; page-break-inside: avoid;">
-                    <div class="visual-bar-container">
-                        <div class="visual-bar-label">Promedio Alumno (${promAlumno}):</div>
-                        <div class="visual-bar-track"><div class="visual-bar-fill" style="width:${pctAlumno}%; background-color:${colorAlumno} !important; -webkit-print-color-adjust: exact;"></div></div>
-                    </div>
-                    <div class="visual-bar-container">
-                        <div class="visual-bar-label">Promedio Curso (${promCurso}):</div>
-                        <div class="visual-bar-track"><div class="visual-bar-fill" style="width:${pctCurso}%; background-color:#9ca3af !important; -webkit-print-color-adjust: exact;"></div></div>
-                    </div>
-                </div>
-            `;
+            if (type === 'tutoria') {
+                // Imprimir SOLO la hoja visual de tutoría tal cual está
+                content = document.getElementById('hoja-tutoria-visual').outerHTML;
+            } else {
+                // Imprimir Informe de Repitencia (Tu formato original)
+                
+                // Cálculos visuales
+                const p1 = parseFloat(getVal('inp-sem1')) || 0;
+                const p2 = parseFloat(getVal('inp-sem2')) || 0;
+                const promAlumno = ((p1 + p2) / 2).toFixed(1);
+                const promCurso = parseFloat(getVal('inp-prom-curso')) || 5.5;
+                const pctAlumno = Math.min((promAlumno / 7) * 100, 100);
+                const pctCurso = Math.min((promCurso / 7) * 100, 100);
+                const colorAlumno = promAlumno < 4.0 ? '#ef4444' : '#3b82f6';
 
-            const commonHeader = `
-                <div class="doc-header">
-                    <div style="display:flex; gap:15px; align-items:center;">
-                        <img src="logo.jpg" style="height:70px;">
-                        <div>
-                            <h2 style="margin:0; font-weight:bold; font-size:12pt; text-transform:uppercase;">${SCHOOL_NAME}</h2>
-                            <p style="margin:0; font-size:10pt;">${LOCATION} • UTP</p>
+                const visualGraph = `
+                    <div style="margin-top:10px; border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:15px; page-break-inside: avoid;">
+                        <div class="visual-bar-container">
+                            <div class="visual-bar-label">Promedio Alumno (${promAlumno}):</div>
+                            <div class="visual-bar-track"><div class="visual-bar-fill" style="width:${pctAlumno}%; background-color:${colorAlumno} !important; -webkit-print-color-adjust: exact;"></div></div>
+                        </div>
+                        <div class="visual-bar-container">
+                            <div class="visual-bar-label">Promedio Curso (${promCurso}):</div>
+                            <div class="visual-bar-track"><div class="visual-bar-fill" style="width:${pctCurso}%; background-color:#9ca3af !important; -webkit-print-color-adjust: exact;"></div></div>
                         </div>
                     </div>
-                    <div style="text-align:right; font-size:10pt;">
-                        <p><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
-                    </div>
-                </div>
-            `;
+                `;
 
-            let html = '';
-            
-            if(type === 'repitencia') {
-                html = `
+                content = `
                     <div class="doc-container">
-                        ${commonHeader}
+                        <div class="doc-header">
+                            <div style="display:flex; gap:15px; align-items:center;">
+                                <img src="logo.jpg" style="height:70px;">
+                                <div>
+                                    <h2 style="margin:0; font-weight:bold; font-size:12pt; text-transform:uppercase;">${SCHOOL_NAME}</h2>
+                                    <p style="margin:0; font-size:10pt;">${LOCATION} • UTP</p>
+                                </div>
+                            </div>
+                            <div style="text-align:right; font-size:10pt;">
+                                <p><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
+                            </div>
+                        </div>
                         <div class="doc-title">INFORME DE SITUACIÓN ACADÉMICA</div>
                         
                         <div class="doc-section">I. ANTECEDENTES</div>
@@ -516,7 +687,7 @@
                         ${visualGraph}
                         
                         <div style="margin-top:15px;">
-                            <p class="doc-field"><strong>Análisis Pedagógico (Brecha y Progreso):</strong></p>
+                            <p class="doc-field"><strong>Análisis Pedagógico:</strong></p>
                             <div class="doc-box">${getVal('inp-analisis-ped')}</div>
                         </div>
                         
@@ -542,46 +713,12 @@
                         </div>
                     </div>
                 `;
-            } else {
-                html = `
-                    <div class="doc-container">
-                        ${commonHeader}
-                        <div class="doc-title">INFORME DE TUTORÍA PEDAGÓGICA</div>
-                        
-                        <div class="doc-section">I. IDENTIFICACIÓN</div>
-                        <p><strong>Estudiante:</strong> ${getVal('inp-nombre')}</p>
-                        <p><strong>Curso:</strong> ${getVal('inp-curso')}</p>
-                        <p><strong>Profesor Tutor:</strong> ${getVal('inp-tutor')}</p>
-                        <p><strong>Fecha Inicio:</strong> ${getVal('inp-fecha-tut')}</p>
-
-                        <div class="doc-section">II. REGISTRO DE ACOMPAÑAMIENTO</div>
-                        <div class="doc-box" style="min-height:400px;">${getVal('inp-acciones')}</div>
-
-                        <div class="doc-signatures">
-                            <div class="doc-sign-line">
-                                ${getVal('inp-tutor')}<br>
-                                <span style="font-weight:normal; font-size:9pt;">Profesor Tutor</span>
-                            </div>
-                            <div class="doc-sign-line">
-                                Firma Estudiante / Apoderado
-                            </div>
-                        </div>
-                    </div>
-                `;
             }
 
-            document.getElementById('print-zone').innerHTML = html;
+            document.getElementById('print-zone').innerHTML = content;
             window.print();
         };
 
-        window.switchTab = (tab) => {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById(`tab-${tab}`).classList.remove('hidden');
-            document.getElementById(`btn-${tab}`).classList.add('active');
-            if(tab === 'historial') loadHistory();
-            if(tab === 'analisis') setTimeout(updateChart, 200);
-        }
     </script>
 </body>
 </html>

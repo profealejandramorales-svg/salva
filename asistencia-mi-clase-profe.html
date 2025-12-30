@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Asistencia y Calificaciones</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .printable-container { width: 100%; }
+        /* Colores de botones según el formato */
+        .btn-add { background-color: #22c55e; } 
+        .btn-add:hover { background-color: #16a34a; }
+        .btn-grade { background-color: #f97316; } 
+        .btn-grade:hover { background-color: #ea580c; }
+        .btn-present { background-color: #22c55e; } 
+        .btn-present:hover { background-color: #16a34a; }
+        .btn-absent { background-color: #ef4444; } 
+        .btn-absent:hover { background-color: #dc2626; }
+        .btn-justified { background-color: #facc15; } 
+        .btn-justified:hover { background-color: #eab308; }
+        .btn-delete { background-color: #9ca3af; } 
+        .btn-delete:hover { background-color: #6b7280; }
+        .btn-volver { background-color: #a855f7; } 
+        .btn-volver:hover { background-color: #9333ea; }
+        .btn-print { background-color: #0d9488; }
+        .btn-print:hover { background-color: #0f766e; }
+        
+        /* Reglas de IMPRESIÓN */
+        .print-only { display: none; }
+        
+        @media print {
+            .no-print { display: none !important; }
+            .printable-container { margin: 0; padding: 0; box-shadow: none; }
+            body { background-color: white; }
+
+            .print-only { display: block; }
+            
+            #printHeader {
+                position: fixed;
+                top: 0;
+                width: 100%;
+                text-align: center;
+                border-bottom: 1px solid #ccc;
+                padding-bottom: 5px;
+                margin-bottom: 20px;
+                background-color: white;
+            }
+            
+            #printFooter {
+                position: fixed;
+                bottom: 0;
+                width: 100%;
+                text-align: center;
+                border-top: 1px solid #ccc;
+                padding-top: 5px;
+                margin-top: 20px;
+                background-color: white;
+                font-size: 10px;
+            }
+            
+            body > .printable-container {
+                padding-top: 40px; 
+                padding-bottom: 20px; 
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div id="printHeader" class="print-only">
+        <h3 class="text-xl font-bold text-gray-800">Gestion Academica en el aula</h3>
+    </div>
+
+    <div class="printable-container bg-white p-8 rounded-2xl shadow-xl max-w-5xl w-full">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2 text-center no-print">Control de Asistencia y Calificaciones</h1>
+        <p class="text-gray-500 mb-6 text-center no-print">Gestión de estudiantes, notas, asistencia y observaciones (Datos Privados).</p>
+        <p id="currentDate" class="text-gray-600 text-center mb-6 no-print font-bold"></p>
+
+        <div class="no-print text-center mb-4">
+             <p class="text-sm text-gray-500">
+                ID de usuario: <span id="userIdDisplay" class="font-mono text-purple-600 font-semibold break-all">Cargando...</span><br>
+                <span id="statusDisplay" class="text-xs font-medium mt-1"></span>
+             </p>
+        </div>
+
+        <div id="controlsContainer" class="no-print mb-8 space-y-4 md:space-y-0 md:flex md:justify-between md:items-end">
+             <div class="flex flex-col space-y-1">
+                <label for="classSelector" class="text-gray-700 font-medium">Seleccionar Clase</label>
+                <select id="classSelector" class="p-2 border rounded-lg shadow-sm w-48"></select>
+             </div>
+             
+             <div class="flex flex-col space-y-1">
+                <label for="dateSelector" class="text-gray-700 font-medium">Seleccionar Fecha</label>
+                <input type="date" id="dateSelector" class="p-2 border rounded-lg shadow-sm w-40">
+             </div>
+
+             <div class="flex flex-col space-y-1">
+                <label for="studentNameInput" class="text-gray-700 font-medium">Agregar Estudiante</label>
+                <div class="flex">
+                    <input type="text" id="studentNameInput" placeholder="Ej: Juan Pérez" class="p-2 border rounded-l-lg shadow-sm w-48" />
+                    <button id="addStudentBtn" class="btn-add text-white font-bold py-2 px-3 rounded-r-lg transition duration-150 shadow-md">+</button>
+                </div>
+             </div>
+             
+             <button id="saveDataBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md w-40 md:w-auto">
+                Guardar Datos
+             </button>
+        </div>
+
+        <div id="backToTableContainer" class="no-print text-center mb-6 hidden">
+             <button id="backToTableBtn" class="btn-volver text-white font-bold py-2 px-4 rounded-lg transition duration-150 mr-4">
+                Volver a la Tabla
+             </button>
+             <button id="printReportBtn" class="btn-print text-white font-bold py-2 px-4 rounded-lg transition duration-150">
+                Imprimir Reporte
+             </button>
+        </div>
+
+        <div id="studentsTableContainer" class="min-h-[200px] flex flex-col justify-start printable-container">
+            <div id="loadingIndicator" class="text-center p-10">Cargando datos...</div>
+            
+            <div id="tableHeader" class="grid grid-cols-6 gap-2 py-3 border-b-2 border-gray-300 font-bold text-gray-700 uppercase text-sm text-center">
+                <div class="col-span-1 text-left">ESTUDIANTE</div>
+                <div>NOTAS</div>
+                <div>PROMEDIO</div>
+                <div>ASISTENCIA</div>
+                <div class="col-span-2 text-left">ACCIONES</div>
+            </div>
+             <div id="tableBody">
+                </div>
+        </div>
+
+        <div id="reportButtons" class="no-print mt-8 text-center space-y-4 md:space-y-0 md:flex md:justify-center md:space-x-4">
+            <button id="showReportBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-150">
+                Ver Reporte de Clases
+            </button>
+            <button id="showDetailedReportBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-150">
+                Ver Reporte Detallado
+            </button>
+        </div>
+
+        <div id="classReportContainer" class="hidden mt-8 printable-container"></div>
+        <div id="classDetailsContainer" class="hidden mt-8 printable-container"></div>
+        
+        <div id="observationModal" class="no-print fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50"></div>
+        <div id="messageModal" class="no-print fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50"></div>
+    </div>
+    
+    <div id="printFooter" class="print-only text-gray-500">
+        Desarrollado por ProfeAle
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAFp6biz1UTr9Ehaudkpe7QyTFVbdQz5Sc",
+            authDomain: "asistencia-mi-clase.firebaseapp.com",
+            projectId: "asistencia-mi-clase",
+            storageBucket: "asistencia-mi-clase.appspot.com",
+            messagingSenderId: "552398254230",
+            appId: "1:552398254230:web:c58dd07e5ceeb67e0912b7", 
+            measurementId: "G-MYR01HM1YE"
+        };
+        const appId = firebaseConfig.appId;
+
+        // --- Estado de la App ---
+        let app, db, auth;
+        let isFirebaseConnected = false;
+        
+        const today = new Date();
+        const offset = today.getTimezoneOffset() * 60000;
+        const localTime = new Date(today.getTime() - offset);
+        const todayString = localTime.toISOString().slice(0, 10);
+        
+        let currentDateString = todayString;
+        let allClassesData = {};
+        let currentClass = null;
+        let students = [];
+        let userId;
+
+        // --- DOM Elements ---
+        function getEl(id) { return document.getElementById(id); }
+        
+        const userIdDisplay = getEl('userIdDisplay');
+        const statusDisplay = getEl('statusDisplay');
+        const currentDateElement = getEl('currentDate');
+        const studentsTableContainer = getEl('studentsTableContainer');
+        const loadingIndicator = getEl('loadingIndicator');
+        const classSelector = getEl('classSelector');
+        const dateSelector = getEl('dateSelector');
+        const saveDataBtn = getEl('saveDataBtn');
+        const showReportBtn = getEl('showReportBtn');
+        const showDetailedReportBtn = getEl('showDetailedReportBtn');
+        const backToTableBtn = getEl('backToTableBtn');
+        const printReportBtn = getEl('printReportBtn'); 
+        const classReportContainer = getEl('classReportContainer');
+        const classDetailsContainer = getEl('classDetailsContainer');
+        const studentNameInput = getEl('studentNameInput');
+        const addStudentBtn = getEl('addStudentBtn');
+        const tableBody = getEl('tableBody');
+        const tableHeader = getEl('tableHeader');
+        const controlsContainer = getEl('controlsContainer');
+        const reportButtons = getEl('reportButtons');
+        const backToTableContainer = getEl('backToTableContainer');
+        const messageModal = getEl('messageModal'); 
+
+        // --- Datos Iniciales (LISTA COMPLETA DE 7 CURSOS) ---
+        const initialClassData = {
+            "Primero Medio A": [
+                'ALBURQUENQUE DEL GRECCO EMILYA ANTONIA', 'ANABALÓN BELTRÁN BENJAMÍN NICOLÁS',
+                'CONTRERAS SALGADO HADEEY ALEJANDRA', 'FERRADA ALBORNOZ AGUSTÍN ALEXIS',
+                'HERNÁNDEZ FERNÁNDEZ DHARIEN ALEXSANDER', 'IBÁÑEZ GONZÁLEZ FERNANDA MAGDALENA',
+                'LAGOS LASTRA ALEXANDRA DANAE', 'LÓPEZ LÓPEZ LUCIANO ANTONIO',
+                'MALDONADO FLORES ANTONELLA BELÉN', 'MARIN MARÍN IGNACIO ANTONIO',
+                'MONTECINO DÍAZ VALESKA BELÉN', 'MUÑOZ CONTRERAS LUIS GABRIEL',
+                'MUÑOZ LUNA ROGER JOEL', 'NAVARRO VILLANUEVA KARLA PAZ',
+                'ORELLANA ARRIAGADA SEBASTIÁN ANDRÉS', 'QUEZADA NARANJO FELIPE ALONSO',
+                'QUINTEROS VERGARA FERNANDA FLORENCIA', 'RAMÍREZ VILLALOBOS DUVAN EMILIO',
+                'SANTANDER LÓPEZ MARÍA JOSÉ', 'TAPIA CASTILLA JEANFRANCO PATRICK',
+                'URBINA CÁCERES FRANCHESCA POULETTE', 'VÁSQUEZ ZALDUENDO AMANDA ISABEL',
+                'ZABALAGA COFRÉ DAMIÁN ANDRÉS', 'BAEZ DONOSO LUKAS ALFONSO',
+                'MESA DÍAZ GONZALO IGNACIO', 'BAREA SALGADO SERGIO ALEXANDER'
+            ],
+            "Primero Medio B": [
+                'ARAVENA ZÚÑIGA NOEMÍ JESÚS DE LAS ESTRELLAS', 'ASTUDILLO CAMPOS CRISTÓBAL ANTONIO',
+                'ASTUDILLO VÁSQUEZ BRUNO FERNANDO LEÓN', 'CASTILLO MUÑOZ RENÉ ANTONIO',
+                'CID CERDA MARÍA EVANGELINA', 'CUMINAO VIDAL CATALINA ANDREA',
+                'DÍAZ MALUENDA MIGUEL ALBERTO', 'KILTAN GONZÁLEZ DIDIER EZEQUIEL',
+                'LÓPEZ ACUÑA MARCO EMILIO', 'LÓPEZ NOVOA EYDAN DAMIÁN',
+                'MÉNDEZ SUAZO FABIÁN FELIPE', 'MOYA REYES MATEO ANTONIO BENJAMÍN',
+                'OSES CAMPOS VALENTINA ABIGAIL', 'PALMA ORELLANA ANTONELLA FRANCISCA',
+                'PEREIRA ORELLANA MONSERRAT ALAMIRA', 'PÉREZ ORMAZÁBAL ZADKA ALEJANDRA',
+                'ROJAS GONZÁLEZ FLORENCIA TRINIDAD', 'ROJAS LEIVA EDUARDO JAVIER',
+                'VÁSQUEZ AGUILERA SCARLET NICOLE', 'YÁÑEZ GONZÁLEZ BRAYAN DAMIÁN',
+                'VARGAS MORAGA MARTINA SAYEN', 'SALAZAR SALAS PEDRO JOSÉ',
+                'VERA BRAVO FLORENCIA ANTONIA', 'PÉREZ QUEVEDO CONSTANZA TRINIDAD',
+                'SALGADO TOLEDO FRANCISCO JAVIER', 'RIQUELME SANTOS BENJAMÍN ALONSO'
+            ],
+            "Segundo Medio A": [
+                'AHUMADA ROJAS TRINIDAD BELÉN', 'ESPINOSA TORRES FERNANDA ELENA',
+                'ESPINOZA PEÑALILLO BRAYAN JESÚS', 'GONZÁLEZ SALAZAR EMILIA CATALINA',
+                'MEDEL OJEDA LEÓN IGNACIO', 'MORALES REIMÁN ALFONSO TOMÁS',
+                'PEREIRA HORMAZÁBAL MAXIMILIANO EDUARDO', 'PINTO TOBAR JORDÁN AMARO',
+                'RECABAL YÁÑEZ KEVIN ANDRÉS', 'RIQUELME CASTILLO MATÍAS EDUARDO ANTONIO',
+                'RIVERA ABARZA CONSTANZA VICTORIA', 'SANTIS CASSEUS TEIVA SCARLETT',
+                'SOBARZO YÉVENES KATHERINNE ALEXIA BELÉN', 'TOLEDO ALBORNOZ ANTONELLA INES',
+                'VENEGAS ARRIAGADA ANTONIA EDITH', 'VIELMA ZABALAGA JOAN MANUEL',
+                'MEZA COLIMÁN ANGEL BLAS', 'PALMA ORELLANA ANTONELLA FRANCISCA'
+            ],
+            "Segundo Medio B": [
+                'ARAYA DOMÍNGUEZ ALEX FABIÁN', 'BRAVO MENARES ALEX JOHAN',
+                'CARRASCO LEIVA BENJAMÍN IGNACIO', 'CARVAJAL URRUTIA CONSTANZA PRISILA (DANIEL)',
+                'ENCINA PIZARRO DIEGO BENJAMÍN ALEXANDER', 'FAÚNDEZ NORAMBUENA ALEJANDRO ANTONIO',
+                'JARAMILLO VILLAR EMILIO SCOTT', 'LÓPEZ VILLAR MARTÍN ALONSO',
+                'MIRANDA MUÑOZ ALEXANDRA JAVIERA', 'MUÑOZ TRONCOSO HÉCTOR ANTONIO',
+                'OLIVARES VALENZUELA ALONSO IGNACIO', 'OLIVARES VALENZUELA ANTONELLA DANAE IGNACIA',
+                'ORELLANA GARRIDO MATÍAS LEANDRO', 'PUNOY MEDEL MILLARAY ANGÉLICA',
+                'QUIÑENAO MUÑOZ CRISTÓBAL PATRICIO', 'RIQUELME COLOMA DALIA CONSTANZA',
+                'SALGADO ROJAS VICENTE MOISÉS', 'SANDOVAL CERPA VICENTE ESTEBAN',
+                'SOTO NARANJO CHRISTOPHER', 'VEKARIC VERDEJO MARTÍN'
+            ],
+            "Tercero Medio A": [
+                'ALCÁNTAR GARCÍA MARTINA ALEJANDRA', 'BAHAMONDE MUÑOZ ARIEL LEON',
+                'CAMPOS MUÑOZ CRISTOPHER JESÚS', 'CANCINO ORÓSTICA VICENTE GASPAR',
+                'CARRASCO GONZÁLEZ CAMILA ANDREA', 'COFRÉ CASTILLO ANTONIO ANDRÉS',
+                'CONTRERAS VENEGAS BELÉN ALEJANDRA', 'GALDAMES VERGARA FELIPE ESTEBAN',
+                'GARCÍA GONZÁLEZ SANTIAGO HUMBERTO', 'GONZÁLEZ AMIGO FRANCISCA IGNACIA',
+                'GONZÁLEZ SALAZAR JOAQUÍN ALONSO', 'GUTIÉRREZ GUTIÉRREZ ANGEL MARTÍN',
+                'JARA SEPÚLVEDA KATRINA DARINKA', 'MARTÍNEZ LIZANA AARON ALEJANDRO',
+                'MEZA CARRASCO BENJAMÍN INTI', 'MIÑO GONZALEZ CATALINA ANDREA',
+                'MORAGA PACHECO RENATO IGNACIO', 'PÉREZ CORÓN MANUEL IGNACIO',
+                'SAMANIEGO CORTEZ JAKSON FERGIE', 'SEPÚLVEDA SALAZAR SOFÍA ANTONIA',
+                'TAPIA ACUÑA GABRIEL ANTONIO', 'VEGA VIVANCO CRISTÓBAL ANTONIO',
+                'VERA NAVARRETE DANIELA ELIZABETH', 'VILLALOBOS ARAVENA KARINA ANGELINA',
+                'VILLALOBOS VILLALOBOS SAMIR LUCIAN JESÚS', 'HERNÁNDEZ SEPÚLVEDA VICENTE ALEJANDRO',
+                'TORREALBA MOYA FLORVELIS DE LOS ANGELES', 'CARO URRUTIA CONSUELO ANTONIA',
+                'LOBOS CÁCERES ANTONIA PAZ'
+            ],
+            "Tercero Medio C": [
+                'ARELLANO ACUÑA MARTÍN ANTONIO', 'AROS ÁVILA DAYANA IGNACIA',
+                'CABRERA COLOMBINO MARÍA GRACIA', 'FUENTES CARRASCO YARIXA ALEJANDRA',
+                'GÓMEZ CANCINO DANIELA ALEJANDRA', 'GUTIÉRREZ CARRIÓN MILLARAY CAROLINA',
+                'HONORATO TAPIA GLORIA JAVIERA', 'LARA RIVERA BENJAMÍN ESTEBAN',
+                'PALACIOS SOTO JOSÉ TOMÁS', 'PEZO SANTANDER JOSÉ CRISTÓBAL',
+                'ROCHA ROJAS JOSÉ PABLO WILLIAMS', 'ROJAS YÉVENES FABIANA ISIDORA',
+                'SÁNCHEZ PAREJA ANDY ANTONIO', 'SANTANDER LÓPEZ SIMÓN ESTEBAN',
+                'TRONCOSO LIZAMA SIOMARA IGNACIA', 'WARNKEN ROJAS LUCIANA BERNABELA',
+                'DE LA HOZ VALENZUELA FRANCO SEBASTIÁN', 'COLLAO MEDINA ANAÍS VALENTINA'
+            ],
+            "Cuarto Medio A": [
+                'AGURTO CRESPO HOMERO ALEXANDER', 'ANDIA DE LA HOZ CATALINA BELEN',
+                'FUENTES GONZÁLEZ ESTEBAN ALEXANDER', 'GARCÍA ROJAS SOFÍA ELENA',
+                'GODOY HERRERA ANTONELLA CONSTANZA PAZ', 'GONZÁLEZ CASTRO KEVIN ALEJANDRO',
+                'MARCHANT MORÁN PÍA IGNACIA', 'QUINTANA SAN MARTÍN ALAN VICENTE',
+                'RECABAL YÁÑEZ CRISTOFER BASTIÁN', 'ROJAS GONZÁLEZ GABRIEL ANTONIO',
+                'TOLEDO MUÑOZ ESPERANZA BELÉN', 'YÁÑEZ GONZÁLEZ FRANCISCA ALEJANDRA'
+            ],
+            "Cuarto Medio C": [
+                'Josefa Morales', 'Benjamín Pérez', 'Constanza Varela'
+            ],
+        };
+        
+        // --- FUNCIÓN CLAVE PARA LA RUTA ÚNICA DEL PROFESOR (CORREGIDA LA ESTRUCTURA) ---
+        function getTeacherDocRef() {
+            // RUTA CORREGIDA: /registros_publicos/{userId}/coleccion_datos/datos_maestros (4 segmentos válidos)
+            return doc(db, `registros_publicos/${userId}/coleccion_datos/datos_maestros`);
+        }
+        // --------------------------------------------------------------------------------
+
+        async function initApp() {
+             try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                isFirebaseConnected = true;
+
+                dateSelector.value = currentDateString;
+
+                onAuthStateChanged(auth, user => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdDisplay.textContent = `ID de Sesión: ${userId.substring(0, 8)}...`;
+                        statusDisplay.textContent = 'Conectado a Firebase (Datos Privados)';
+                        statusDisplay.className = 'text-xs font-medium text-green-600'; 
+                        loadDataFromFirestore();
+                    } else {
+                        signInAnonymously(auth).catch(e => console.error("Error inicio anónimo:", e));
+                    }
+                });
+             } catch (e) {
+                 console.error("Error al iniciar Firebase:", e);
+                 showMessage('Error Fatal', 'No se pudo conectar a Firebase.');
+             }
+             updateCurrentDateUI();
+             setupEventHandlers();
+        }
+
+        function loadDataFromFirestore() {
+            try {
+                const docRef = getTeacherDocRef(); 
+
+                onSnapshot(docRef, (docSnap) => {
+                    loadingIndicator.style.display = 'none';
+                    if (docSnap.exists() && docSnap.data().classes) {
+                        allClassesData = docSnap.data().classes;
+                        if (!currentClass || !allClassesData[currentClass]) {
+                            currentClass = Object.keys(allClassesData)[0];
+                        }
+                    } else {
+                        // El documento no existe para este nuevo profesor, lo creamos.
+                        showMessage('Creación de Datos', 'Creando la lista de clases iniciales para tu cuenta. Por favor, guarde una vez que la tabla aparezca.');
+                        createInitialData(); 
+                        return; 
+                    }
+                    students = allClassesData[currentClass] || [];
+                    initializeClassSelector();
+                    renderStudentsTable();
+                }, (error) => {
+                    loadingIndicator.style.display = 'none';
+                    studentsTableContainer.innerHTML = `<p class="text-red-600">Error al cargar los datos: ${error.message}</p>`;
+                    showMessage('Error de Carga', `No se pudieron cargar los datos. Revise las reglas de seguridad de Firestore para la ruta: /registros_publicos/{userId}/coleccion_datos/datos_maestros.`);
+                });
+            } catch (e) {
+                loadingIndicator.style.display = 'none';
+                showMessage('Error', e.message);
+            }
+        }
+
+        async function createInitialData() {
+             const initialClasses = {};
+             for (const className in initialClassData) {
+                 initialClasses[className] = initialClassData[className].map(name => ({
+                     name, grades: [], attendance: {}, observations: ''
+                 }));
+             }
+             // Usa la ruta única del profesor
+             const docRef = getTeacherDocRef();
+             try {
+                await setDoc(docRef, { classes: initialClasses });
+                console.log("Datos iniciales creados en Firestore. La UI se actualizará.");
+             } catch (e) {
+                 console.error("Fallo al crear datos iniciales:", e);
+                 showMessage('Error de Escritura', 'No se pudo crear la data inicial. Verifique que sus reglas de seguridad permitan CREAR/ESCRIBIR en la ruta corregida.');
+             }
+        }
+
+        async function saveData() {
+             if (!isFirebaseConnected || !userId) { showMessage('Sin conexión', 'No está conectado a Firebase para guardar datos.'); return; }
+             try {
+                 // Usa la ruta única del profesor
+                 const docRef = getTeacherDocRef();
+                 await updateDoc(docRef, { classes: allClassesData });
+                 showMessage('Guardado', 'Datos guardados correctamente.', false);
+             } catch (e) { 
+                 showMessage('Error de Guardado', 'No se pudieron guardar los datos. Error: ' + e.message);
+             }
+        }
+        
+        function addStudent() {
+            const name = studentNameInput.value.trim();
+            if (!name || !currentClass) {
+                showMessage('Advertencia', 'Debes seleccionar una clase y escribir un nombre.');
+                return;
+            }
+            if (students.some(s => s.name === name.toUpperCase())) {
+                showMessage('Advertencia', 'Este estudiante ya existe en la clase.');
+                return;
+            }
+            const newStudent = { name: name.toUpperCase(), grades: [], attendance: {}, observations: '' };
+            students.push(newStudent);
+            studentNameInput.value = '';
+            
+            allClassesData[currentClass] = students;
+            renderStudentsTable();
+        }
+
+        // --- Funciones de UI y Lógica Auxiliar (SIN CAMBIOS) ---
+        
+        function showView(view) {
+            getEl('studentsTableContainer').style.display = 'none';
+            getEl('classReportContainer').style.display = 'none';
+            getEl('classDetailsContainer').style.display = 'none';
+
+            controlsContainer.classList.add('hidden');
+            reportButtons.classList.add('hidden');
+            backToTableContainer.classList.add('hidden');
+            tableHeader.style.display = 'none';
+
+            if (view === 'table') {
+                getEl('studentsTableContainer').style.display = 'flex';
+                controlsContainer.classList.remove('hidden');
+                reportButtons.classList.remove('hidden');
+                getEl('tableHeader').style.display = students.length > 0 ? 'grid' : 'none';
+            } else if (view === 'report') {
+                getEl('classReportContainer').style.display = 'block';
+                backToTableContainer.classList.remove('hidden');
+            } else if (view === 'detailed') {
+                getEl('classDetailsContainer').style.display = 'block';
+                backToTableContainer.classList.remove('hidden');
+            }
+        }
+
+        function showMessage(title, message, isConfirm = false, callback = () => {}) { 
+            console.log(`[Modal] ${title}: ${message}`);
+            if (!isConfirm) alert(`${title}: ${message}`);
+            else if (confirm(`${title}: ${message}`)) callback(true);
+        }
+        
+        function renderStudentsTable() { 
+            tableHeader.style.display = students.length > 0 ? 'grid' : 'none';
+
+            tableBody.innerHTML = students.map((student, index) => `
+                <div data-index="${index}" class="grid grid-cols-6 gap-2 py-3 border-b border-gray-100 hover:bg-gray-50 items-center text-sm">
+                    <div class="col-span-1 text-left font-medium text-gray-800">${student.name}</div>
+                    
+                    <div class="text-center text-gray-500">${student.grades.length}</div>
+                    <div class="text-center font-bold text-blue-600">${calculateAverage(student.grades)}</div>
+                    
+                    <div class="text-center space-x-1">
+                         <button data-status="P" data-index="${index}" class="btn-present attendance-btn text-white w-6 h-6 rounded-full text-xs ${getAttendanceStatus(student) === 'P' ? 'opacity-100' : 'opacity-30'}">P</button>
+                         <button data-status="A" data-index="${index}" class="btn-absent attendance-btn text-white w-6 h-6 rounded-full text-xs ${getAttendanceStatus(student) === 'A' ? 'opacity-100' : 'opacity-30'}">A</button>
+                         <button data-status="J" data-index="${index}" class="btn-justified attendance-btn text-white w-6 h-6 rounded-full text-xs ${getAttendanceStatus(student) === 'J' ? 'opacity-100' : 'opacity-30'}">J</button>
+                    </div>
+                    
+                    <div class="col-span-2 flex justify-start space-x-2 pl-4">
+                        <input type="number" step="0.1" placeholder="Nota" class="p-1 border rounded w-16 text-center text-xs">
+                        <button data-index="${index}" class="btn-grade text-white font-bold w-6 h-6 rounded-full text-xs">+</button>
+                        <button data-index="${index}" class="btn-delete text-white w-6 h-6 rounded-full text-xs">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            attachTableListeners();
+        }
+
+        function calculateAverage(grades) { 
+            if (grades.length === 0) return '0.0';
+            const sum = grades.reduce((acc, grade) => acc + grade, 0);
+            return (sum / grades.length).toFixed(1);
+        }
+        
+        function getAttendanceStatus(student) { 
+            return student.attendance[currentDateString] || 'N/A';
+        }
+        
+        function initializeClassSelector() {
+            classSelector.innerHTML = '';
+            const classNames = Object.keys(allClassesData);
+            classNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                if (name === currentClass) {
+                    option.selected = true;
+                }
+                classSelector.appendChild(option);
+            });
+        }
+
+        function updateCurrentDateUI() { 
+             const dateParts = currentDateString.split('-');
+             const dateToFormat = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+             
+             const formattedDate = dateToFormat.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+             currentDateElement.textContent = `Fecha Seleccionada: ${formattedDate}`;
+             dateSelector.value = currentDateString;
+        }
+        
+        function attachTableListeners() {
+            document.querySelectorAll('.attendance-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    const status = e.target.dataset.status;
+                    if (students[index]) {
+                        students[index].attendance[currentDateString] = status;
+                        allClassesData[currentClass] = students;
+                        renderStudentsTable();
+                    }
+                });
+            });
+        }
+        
+        function calculateClassSummary(className) {
+            if (Object.keys(allClassesData).length === 0) return { P: 0, A: 0, J: 0, total_students: 0, total_records: 0, tasa_asistencia: 'N/A' };
+
+            const classStudents = allClassesData[className] || [];
+            let summary = { P: 0, A: 0, J: 0, total_students: classStudents.length, total_records: 0 };
+            
+            classStudents.forEach(student => {
+                Object.values(student.attendance).forEach(status => {
+                    if (status in summary) {
+                        summary[status]++;
+                        summary.total_records++;
+                    }
+                });
+            });
+            
+            if (summary.total_records > 0) {
+                summary.tasa_asistencia = ((summary.P + summary.J) / summary.total_records * 100).toFixed(2) + '%';
+            } else {
+                summary.tasa_asistencia = 'N/A';
+            }
+
+            return summary;
+        }
+
+        function generateClassReport() {
+            if (Object.keys(allClassesData).length === 0) {
+                showMessage('Advertencia', 'No hay datos de clases cargados para generar el reporte.');
+                return;
+            }
+            
+            showView('report');
+            const classNames = Object.keys(allClassesData);
+
+            let tableHTML = `
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Reporte Resumen de Clases</h2>
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clase</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estudiantes</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Presentes (P)</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ausentes (A)</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Justif. (J)</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Tasa de Asistencia</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${classNames.map(className => {
+                            const summary = calculateClassSummary(className);
+                            return `
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${className}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm">${summary.total_students}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-green-600 font-bold">${summary.P}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-red-600 font-bold">${summary.A}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-yellow-600 font-bold">${summary.J}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-bold">${summary.tasa_asistencia}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            classReportContainer.innerHTML = tableHTML;
+        }
+
+        function generateDetailedReport(className) {
+            if (!className || Object.keys(allClassesData).length === 0) {
+                showMessage('Advertencia', 'Debe seleccionar una clase válida para generar el reporte detallado.');
+                return;
+            }
+
+            showView('detailed');
+            const classData = allClassesData[className] || [];
+
+            let allDates = new Set();
+            classData.forEach(student => {
+                Object.keys(student.attendance).forEach(date => allDates.add(date));
+            });
+            const sortedDates = Array.from(allDates).sort(); 
+
+            let reportHTML = `
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Reporte Detallado de ${className}</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">Estudiante</th>
+                                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Promedio</th>
+                                ${sortedDates.map(date => `<th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">${date.substring(5)}</th>`).join('')}
+                                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${classData.map(student => {
+                                const attendanceCells = sortedDates.map(date => {
+                                    const status = student.attendance[date] || '—';
+                                    let colorClass = '';
+                                    if (status === 'P') colorClass = 'text-green-600 font-bold';
+                                    else if (status === 'A') colorClass = 'text-red-600 font-bold';
+                                    else if (status === 'J') colorClass = 'text-yellow-600 font-bold';
+                                    return `<td class="px-3 py-4 whitespace-nowrap text-center ${colorClass}">${status}</td>`;
+                                }).join('');
+                                
+                                return `
+                                    <tr>
+                                        <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white z-0">${student.name}</td>
+                                        <td class="px-3 py-4 whitespace-nowrap text-center text-sm font-bold text-blue-600">${calculateAverage(student.grades)}</td>
+                                        ${attendanceCells}
+                                        <td class="px-3 py-4 text-sm text-gray-500">${student.observations || 'N/A'}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            classDetailsContainer.innerHTML = reportHTML;
+        }
+        
+        function setupEventHandlers() { 
+             saveDataBtn.addEventListener('click', saveData);
+             showReportBtn.addEventListener('click', () => { generateClassReport(); });
+             showDetailedReportBtn.addEventListener('click', () => { generateDetailedReport(currentClass); });
+             backToTableBtn.addEventListener('click', () => showView('table'));
+             printReportBtn.addEventListener('click', () => window.print()); 
+             addStudentBtn.addEventListener('click', addStudent);
+
+             classSelector.addEventListener('change', (e) => {
+                currentClass = e.target.value;
+                students = allClassesData[currentClass] || [];
+                renderStudentsTable();
+             });
+             
+             dateSelector.addEventListener('change', (e) => {
+                let selectedValue = e.target.value; 
+                
+                if (selectedValue && !/^\d{4}-\d{2}-\d{2}$/.test(selectedValue)) {
+                    const parts = selectedValue.split('-');
+                    if (parts.length === 3) {
+                         selectedValue = `${parts[2]}-${parts[1]}-${parts[0]}`; 
+                    }
+                }
+                
+                currentDateString = selectedValue;
+                
+                updateCurrentDateUI();
+                renderStudentsTable(); 
+                showView('table');
+             });
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
