@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planificador Digital (Export Word)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
+    <style>
+        body { font-family: 'Quicksand', sans-serif; background-color: #f3f4f6; }
+        .glass { background: rgba(255,255,255,0.98); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.5); }
+        .input-detail { width: 100%; border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 0.5rem; font-size: 0.875rem; }
+        .input-detail::placeholder { color: #9ca3af; font-style: italic; font-size: 0.8rem; }
+        .label-detail { display: block; font-size: 0.75rem; font-weight: 700; color: #4b5563; margin-bottom: 0.25rem; text-transform: uppercase; }
+        select optgroup { font-weight: bold; font-style: normal; color: #4b5563; }
+        
+        @media print {
+            @page { size: landscape; margin: 1cm; }
+            body { background: white; padding: 0; font-family: Arial, sans-serif; }
+            .no-print, .glass { display: none !important; }
+            .print-container { display: block !important; width: 100%; }
+            table { width: 100%; border-collapse: collapse; font-size: 10pt; table-layout: fixed; }
+            th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; word-wrap: break-word; }
+            th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
+            .col-clase { width: 5%; text-align: center; }
+            .print-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+            .print-logo { height: 60px; }
+            .print-info { text-align: right; font-size: 11pt; }
+        }
+        .print-container { display: none; }
+    </style>
+</head>
+<body class="min-h-screen p-4">
+    <div id="root"></div>
+
+    <script>
+    (() => {
+        const { useState, useEffect } = React;
+
+        const firebaseConfigBitacora = { apiKey: "AIzaSyDUArOBUzzvulHYQGA7IvnEwo2jQbEa3Xs", authDomain: "attendance-ai-s81lt.firebaseapp.com", projectId: "attendance-ai-s81lt", storageBucket: "attendance-ai-s81lt.firebasestorage.app", messagingSenderId: "935781953186", appId: "1:935781953186:web:6c8a7a93ffad180d33b1fb" };
+        const appBitacora = firebase.initializeApp(firebaseConfigBitacora, "appBitacora");
+        const dbBitacora = appBitacora.firestore();
+
+        const firebaseConfigPlanif = { apiKey: "AIzaSyDJnJlpsqR76z_lBnTNEULYcGoQGIi23VU", authDomain: "planificaciones-18b94.firebaseapp.com", projectId: "planificaciones-18b94", storageBucket: "planificaciones-18b94.appspot.com", messagingSenderId: "268119843295", appId: "1:268119843295:web:bb2bdbcb0affe4ecf3646a" };
+        let appPlanif; try { appPlanif = firebase.initializeApp(firebaseConfigPlanif, "appPlanif"); } catch(e) { appPlanif = firebase.app("appPlanif"); }
+        const dbPlanif = appPlanif.firestore();
+        const COLL_PLANIFICACIONES = "planificaciones_digitales";
+
+        function App() {
+            const [loading, setLoading] = useState(true);
+            const [step, setStep] = useState(0); 
+            const [rawCursos, setRawCursos] = useState([]); 
+            const [listas, setListas] = useState({ docentes: [], niveles: [], asignaturas: [] });
+            const [oasAnualesBitacora, setOasAnualesBitacora] = useState([]);
+            const [config, setConfig] = useState({ cursoId: '', nivel: '', asignatura: '', docente: '', year: '2025' }); 
+            const [monthlyDist, setMonthlyDist] = useState({});
+            const [classPlans, setClassPlans] = useState({});
+            const [editingMonth, setEditingMonth] = useState(null);
+            const [currentPlanId, setCurrentPlanId] = useState(null);
+            const [planStatus, setPlanStatus] = useState('Borrador');
+
+            const MONTHS = ["MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
+            const YEAR_KEY = config.year === '2025' ? 'plan' : `plan_${config.year}`;
+
+            useEffect(() => {
+                const conectarBitacora = async () => {
+                    try {
+                        const docSnap = await dbBitacora.collection('docentes').get();
+                        const docentesList = docSnap.docs.map(d => d.data().nombre).sort();
+                        const cursosSnap = await dbBitacora.collection('cursos').get();
+                        const cursosData = cursosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                        setRawCursos(cursosData);
+                        const nivelesUnicos = [...new Set(cursosData.map(c => c.nivel))].sort();
+                        setListas({ docentes: docentesList, niveles: nivelesUnicos, asignaturas: [] });
+                        setLoading(false);
+                    } catch (error) { alert("Error Bitácora: " + error.message); }
+                };
+                conectarBitacora();
+            }, []);
+
+            useEffect(() => {
+                if (config.nivel) {
+                    const asignaturasDelNivel = rawCursos.filter(c => c.nivel === config.nivel).map(c => c.nombre).sort();
+                    setListas(prev => ({ ...prev, asignaturas: [...new Set(asignaturasDelNivel)] }));
+                    setConfig(prev => ({ ...prev, asignatura: '' }));
+                }
+            }, [config.nivel]);
+
+            const cargarTodo = async () => {
+                if (!config.nivel || !config.asignatura || !config.docente) { alert("Complete todos los campos"); return; }
+                const cursoEncontrado = rawCursos.find(c => c.nivel === config.nivel && c.nombre === config.asignatura);
+                if (cursoEncontrado) {
+                    setConfig(prev => ({ ...prev, cursoId: cursoEncontrado.id }));
+                    const planAnual = cursoEncontrado[YEAR_KEY] || [];
+                    if (planAnual.length > 0) {
+                        setOasAnualesBitacora(planAnual);
+                        const distInicial = {};
+                        planAnual.forEach(oa => { if (oa.mes && oa.mes !== 'Anual') distInicial[oa.codigo] = oa.mes; });
+                        setMonthlyDist(distInicial); 
+                    } else { alert("⚠️ Advertencia: No hay OAs anuales en la Bitácora."); }
+                }
+
+                setLoading(true);
+                try {
+                    const q = dbPlanif.collection(COLL_PLANIFICACIONES).where("docente", "==", config.docente).where("nivel", "==", config.nivel).where("asignatura", "==", config.asignatura).where("year", "==", config.year).limit(1);
+                    const querySnapshot = await q.get();
+                    if (!querySnapshot.empty) {
+                        const docRecuperado = querySnapshot.docs[0];
+                        const datosGuardados = docRecuperado.data();
+                        setCurrentPlanId(docRecuperado.id);
+                        if(datosGuardados.monthly_distribution) setMonthlyDist(datosGuardados.monthly_distribution);
+                        if(datosGuardados.detailed_planning) setClassPlans(datosGuardados.detailed_planning);
+                        setPlanStatus(datosGuardados.estado || 'Borrador');
+                        alert(`📂 ¡Avance Recuperado!`);
+                    } else {
+                        setCurrentPlanId(null);
+                        setClassPlans({});
+                        setPlanStatus('Borrador');
+                    }
+                    setStep(1); 
+                } catch (e) { alert("Error recuperando: " + e.message); } finally { setLoading(false); }
+            };
+
+            const addClassToMonth = () => {
+                const currentClasses = classPlans[editingMonth] || [];
+                const newClass = { id: Date.now(), number: currentClasses.length + 1, oa_ref: "", contenido: "", actividad_inicio: "", actividad_desarrollo: "", actividad_cierre: "", recursos: "", evaluacion: "", dua: { p1: false, p2: false, p3: false } };
+                setClassPlans({ ...classPlans, [editingMonth]: [...currentClasses, newClass] });
+            };
+            const updateClassField = (classId, field, value) => {
+                const updatedClasses = classPlans[editingMonth].map(c => c.id === classId ? { ...c, [field]: value } : c);
+                setClassPlans({ ...classPlans, [editingMonth]: updatedClasses });
+            };
+            const updateDua = (classId, p) => {
+                const updatedClasses = classPlans[editingMonth].map(c => c.id === classId ? { ...c, dua: { ...c.dua, [p]: !c.dua[p] } } : c);
+                setClassPlans({ ...classPlans, [editingMonth]: updatedClasses });
+            };
+            const deleteClass = (classId) => {
+                if(!confirm("¿Borrar?")) return;
+                const updatedClasses = classPlans[editingMonth].filter(c => c.id !== classId);
+                setClassPlans({ ...classPlans, [editingMonth]: updatedClasses });
+            };
+
+            const saveFinal = async (esEnvioUTP = false) => {
+                const monthClasses = classPlans[editingMonth] || [];
+                if (esEnvioUTP && monthClasses.length < 4) {
+                    alert(`⚠️ BLOQUEO DE CALIDAD\n\nSolo tienes ${monthClasses.length} clases. Mínimo 4 requeridas para enviar.`);
+                    return; 
+                }
+                const estadoFinal = esEnvioUTP ? 'Enviado UTP' : 'Borrador';
+                const fechaEnvio = esEnvioUTP ? new Date().toLocaleString() : null;
+                const dataToSave = { ...config, monthly_distribution: monthlyDist, detailed_planning: classPlans, timestamp: Date.now(), estado: estadoFinal, origen_bitacora_id: config.cursoId, mes_planificado: editingMonth };
+                if(fechaEnvio) dataToSave.fecha_envio = fechaEnvio;
+
+                try {
+                    if (currentPlanId) { await dbPlanif.collection(COLL_PLANIFICACIONES).doc(currentPlanId).update(dataToSave); } 
+                    else { const docRef = await dbPlanif.collection(COLL_PLANIFICACIONES).add(dataToSave); setCurrentPlanId(docRef.id); }
+                    setPlanStatus(estadoFinal);
+                    alert(esEnvioUTP ? "🚀 ¡Enviado a UTP!" : "💾 Guardado");
+                } catch(e) { alert("Error: " + e.message); }
+            };
+
+            // FUNCIONALIDAD EXPORTAR A WORD
+            const downloadWord = () => {
+                const monthClasses = classPlans[editingMonth] || [];
+                if(monthClasses.length === 0) return alert("No hay clases para descargar.");
+
+                let rowsHtml = "";
+                monthClasses.forEach(c => {
+                    const duaTxt = getDuaText(c.dua);
+                    rowsHtml += `
+                        <tr>
+                            <td style="text-align:center;font-weight:bold">${c.number}</td>
+                            <td>
+                                <b>OA:</b> ${c.oa_ref}<br><br>
+                                <b>Contenido:</b> ${c.contenido}
+                            </td>
+                            <td>
+                                <b>INICIO:</b> ${c.actividad_inicio}<br><br>
+                                <b>DESARROLLO:</b> ${c.actividad_desarrollo}<br><br>
+                                <b>CIERRE:</b> ${c.actividad_cierre}
+                            </td>
+                            <td>
+                                <b>Recursos:</b> ${c.recursos}<br>
+                                <b>Evaluación:</b> ${c.evaluacion}
+                            </td>
+                            <td>${duaTxt}</td>
+                        </tr>
+                    `;
+                });
+
+                const htmlContent = `
+                    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                    <head><meta charset='utf-8'><title>Planificación</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; }
+                        table { border-collapse: collapse; width: 100%; }
+                        td, th { border: 1px solid black; padding: 8px; vertical-align: top; }
+                        th { background-color: #f2f2f2; text-align: center; }
+                        .header { margin-bottom: 20px; border-bottom: 2px solid black; padding-bottom: 10px; }
+                    </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <h1>PLANIFICACIÓN MENSUAL CLASE A CLASE</h1>
+                            <p><strong>Docente:</strong> ${config.docente}</p>
+                            <p><strong>Curso:</strong> ${config.nivel} - <strong>Asignatura:</strong> ${config.asignatura}</p>
+                            <p><strong>Mes:</strong> ${editingMonth} ${config.year}</p>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th width="5%">N°</th>
+                                    <th width="20%">OA / Contenido</th>
+                                    <th width="40%">Secuencia Didáctica</th>
+                                    <th width="20%">Recursos / Eval</th>
+                                    <th width="15%">DUA</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                        <br><br>
+                        <p>__________________________<br>Firma Docente</p>
+                    </body>
+                    </html>
+                `;
+
+                const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `Planif_${editingMonth}_${config.asignatura}_${config.docente}.doc`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const getDuaText = (d) => { let t=[]; if(d.p1)t.push("1. Pres"); if(d.p2)t.push("2. Acc"); if(d.p3)t.push("3. Imp"); return t.join(", "); };
+
+            if (loading) return React.createElement("div", {className: "min-h-screen flex items-center justify-center bg-gray-100"}, "Cargando...");
+            if (step === 0) return React.createElement("div", { className: "max-w-md mx-auto mt-10 no-print" },
+                React.createElement("div", { className: "glass p-8 rounded-2xl shadow-xl" },
+                    React.createElement("h2", { className: "text-2xl font-bold text-green-700 text-center mb-6" }, "Planificador Digital"),
+                    React.createElement("div", { className: "space-y-4" },
+                        React.createElement("div", null, React.createElement("label", {className:"label-detail"}, "Año"), React.createElement("select", { className: "w-full p-2 border rounded font-bold", value: config.year, onChange: e => setConfig({...config, year: e.target.value}) }, React.createElement("option", {value:"2025"}, "2025"), React.createElement("option", {value:"2026"}, "2026"))),
+                        React.createElement("div", null, React.createElement("label", {className:"label-detail"}, "Docente"), React.createElement("select", { className: "w-full p-2 border rounded", value: config.docente, onChange: e => setConfig({...config, docente: e.target.value}) }, React.createElement("option", {value:""}, "-- Seleccionar --"), listas.docentes.map(d => React.createElement("option", { key: d, value: d }, d)))),
+                        React.createElement("div", null, React.createElement("label", {className:"label-detail"}, "Nivel"), React.createElement("select", { className: "w-full p-2 border rounded", value: config.nivel, onChange: e => setConfig({...config, nivel: e.target.value}) }, React.createElement("option", {value:""}, "-- Seleccionar --"), listas.niveles.map(c => React.createElement("option", { key: c, value: c }, c)))),
+                        React.createElement("div", null, React.createElement("label", {className:"label-detail"}, "Asignatura"), React.createElement("select", { className: "w-full p-2 border rounded", value: config.asignatura, onChange: e => setConfig({...config, asignatura: e.target.value}), disabled: !config.nivel }, React.createElement("option", {value:""}, config.nivel ? "-- Seleccionar --" : ".."), listas.asignaturas.map(a => React.createElement("option", { key: a, value: a }, a)))),
+                        React.createElement("button", { onClick: cargarTodo, className: "w-full py-3 bg-green-600 text-white font-bold rounded-xl shadow mt-4" }, "Ingresar / Cargar Datos")
+                    )
+                )
+            );
+
+            if (step === 1) return React.createElement("div", { className: "max-w-6xl mx-auto mt-6 no-print" },
+                React.createElement("div", { className: "glass p-6 rounded-2xl shadow-lg" },
+                    React.createElement("div", { className: "flex justify-between items-center mb-6 border-b pb-4" },
+                        React.createElement("div", null, React.createElement("h2", { className: "text-xl font-bold text-gray-800" }, "Panel Mensual"), React.createElement("p", {className: "text-sm text-gray-500"}, `${config.nivel} - ${config.asignatura}`)),
+                        React.createElement("button", { onClick: () => { setStep(0); setClassPlans({}); setCurrentPlanId(null); }, className: "px-4 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded" }, "Salir")
+                    ),
+                    React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" },
+                        MONTHS.map(month => {
+                            const oasDelMes = oasAnualesBitacora.filter(oa => monthlyDist[oa.codigo] === month);
+                            const classesCreated = classPlans[month]?.length || 0;
+                            return React.createElement("div", { key: month, className: "bg-white p-4 rounded-xl border shadow-sm flex flex-col justify-between" },
+                                React.createElement("div", null,
+                                    React.createElement("div", { className: "flex justify-between items-center mb-2" },
+                                        React.createElement("h4", { className: "font-bold text-gray-800" }, month),
+                                        classesCreated > 0 && React.createElement("span", { className: "bg-purple-100 text-purple-800 text-[10px] px-2 py-1 rounded-full font-bold" }, `${classesCreated} Clases`)
+                                    ),
+                                    oasDelMes.length > 0 ? React.createElement("ul", { className: "space-y-1 mb-2" }, oasDelMes.map(oa => React.createElement("li", { key: oa.codigo, className: "text-[10px] bg-green-50 text-green-800 px-1 rounded truncate" }, oa.codigo))) : React.createElement("p", { className: "text-xs text-gray-400 italic mb-3" }, "Disponibles Anuales")
+                                ),
+                                React.createElement("button", { onClick: () => { setEditingMonth(month); setStep(3); }, className: "w-full py-2 bg-indigo-600 text-white rounded text-sm font-bold flex items-center justify-center gap-2" }, React.createElement("i", { className: "fa-solid fa-pen-to-square" }), "Planificar")
+                            );
+                        })
+                    )
+                )
+            );
+
+            if (step === 3 && editingMonth) {
+                const monthClasses = classPlans[editingMonth] || [];
+                const oasMes = oasAnualesBitacora.filter(oa => monthlyDist[oa.codigo] === editingMonth);
+                const oasAnual = oasAnualesBitacora.filter(oa => oa.mes === 'Anual');
+
+                return React.createElement("div", { className: "max-w-7xl mx-auto mt-4 pb-20" },
+                    React.createElement("div", { className: "glass p-4 rounded-xl shadow-md mb-6 sticky top-2 z-50 flex flex-col md:flex-row justify-between items-center gap-4 no-print" },
+                        React.createElement("div", null, 
+                            React.createElement("h2", { className: "text-2xl font-bold text-purple-700" }, `Editando: ${editingMonth}`), 
+                            React.createElement("p", { className: `text-xs font-bold ${planStatus === 'Enviado UTP' ? 'text-green-600' : 'text-orange-500'}` }, 
+                                currentPlanId ? `Estado: ${planStatus}` : "🟠 Nuevo Documento"
+                            )
+                        ),
+                        React.createElement("div", { className: "flex gap-2" },
+                            React.createElement("button", { onClick: () => saveFinal(true), className: "px-3 py-2 bg-purple-600 text-white font-bold rounded text-xs" }, "Enviar a UTP"),
+                            React.createElement("button", { onClick: downloadWord, className: "px-3 py-2 bg-blue-800 text-white font-bold rounded text-xs flex items-center gap-1" }, React.createElement("i", {className: "fa-solid fa-file-word"}), "Word"),
+                            React.createElement("button", { onClick: () => window.print(), className: "px-3 py-2 bg-blue-100 text-blue-700 font-bold rounded text-xs" }, "Imprimir"),
+                            React.createElement("button", { onClick: () => saveFinal(false), className: "px-3 py-2 bg-green-600 text-white font-bold rounded text-xs" }, "Guardar"),
+                            React.createElement("button", { onClick: () => { setEditingMonth(null); setStep(1); }, className: "px-3 py-2 bg-gray-200 text-gray-600 font-bold rounded text-xs" }, "Volver")
+                        )
+                    ),
+                    React.createElement("div", { className: "print-container" },
+                        React.createElement("div", { className: "print-header" },
+                            React.createElement("img", { src: "logo.jpg", className: "print-logo", onError: (e) => e.target.style.display='none' }),
+                            React.createElement("div", null, React.createElement("h1", { style: {fontSize: '14pt', fontWeight: 'bold'} }, "Planificación Mensual Clase a Clase"), React.createElement("p", { style: {fontSize: '10pt'} }, "Escuela Agrícola Sagrados Corazones")),
+                            React.createElement("div", { className: "print-info" }, React.createElement("p", null, React.createElement("strong", null, "Docente: "), config.docente), React.createElement("p", null, React.createElement("strong", null, "Asignatura: "), config.asignatura), React.createElement("p", null, React.createElement("strong", null, "Mes: "), editingMonth))
+                        ),
+                        React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", {className:"col-clase"},"N°"), React.createElement("th", {className:"col-oa"},"OA/Contenido"), React.createElement("th", {className:"col-act"},"Secuencia"), React.createElement("th", null,"Recursos/Eval"), React.createElement("th", {className:"col-dua"},"DUA"))),
+                            React.createElement("tbody", null, monthClasses.map(c => 
+                                React.createElement("tr", { key: c.id },
+                                    React.createElement("td", { style: {textAlign: 'center'} }, c.number),
+                                    React.createElement("td", null, React.createElement("strong", null, "OA:"), " ", c.oa_ref, React.createElement("br"), React.createElement("strong", null, "Cont:"), " ", c.contenido),
+                                    React.createElement("td", null, React.createElement("strong", null, "I:"), " ", c.actividad_inicio, React.createElement("br"), React.createElement("strong", null, "D:"), " ", c.actividad_desarrollo, React.createElement("br"), React.createElement("strong", null, "C:"), " ", c.actividad_cierre),
+                                    React.createElement("td", null, c.recursos, React.createElement("br"), React.createElement("em", null, c.evaluacion)),
+                                    React.createElement("td", { style: {fontSize: '9pt'} }, getDuaText(c.dua))
+                                )
+                            ))
+                        ),
+                        React.createElement("div", { style: {marginTop: '50px', borderTop: '1px solid black', width: '200px', textAlign: 'center'} }, "Firma Docente")
+                    ),
+                    React.createElement("div", { className: "no-print space-y-8" },
+                        monthClasses.map((clase, idx) => 
+                            React.createElement("div", { key: clase.id, className: "glass p-6 rounded-xl shadow-lg border-l-8 border-purple-500 relative" },
+                                React.createElement("div", { className: "flex justify-between items-start mb-4 border-b pb-2" },
+                                    React.createElement("h3", { className: "text-lg font-bold text-gray-800" }, `Clase N° ${idx + 1}`),
+                                    React.createElement("button", { onClick: () => deleteClass(clase.id), className: "text-red-400 hover:text-red-600 text-sm" }, React.createElement("i", { className: "fa-solid fa-trash" }))
+                                ),
+                                React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
+                                    React.createElement("div", { className: "space-y-3" },
+                                        React.createElement("div", null,
+                                            React.createElement("label", { className: "label-detail" }, "Objetivo de Aprendizaje"),
+                                            React.createElement("select", { className: "input-detail bg-gray-50 font-bold text-green-700", value: clase.oa_ref, onChange: (e) => updateClassField(clase.id, 'oa_ref', e.target.value) },
+                                                React.createElement("option", { value: "" }, "-- Seleccionar OA --"),
+                                                oasMes.length > 0 && React.createElement("optgroup", { label: `📍 Prioritarios de ${editingMonth}` }, oasMes.map(oa => React.createElement("option", { key: oa.codigo, value: oa.codigo }, `${oa.codigo} - ${oa.desc.substring(0,50)}...`))),
+                                                React.createElement("optgroup", { label: "📅 Transversales / Anuales" }, oasAnual.map(oa => React.createElement("option", { key: oa.codigo, value: oa.codigo }, `${oa.codigo} - ${oa.desc.substring(0,50)}...`))),
+                                                React.createElement("option", { value: "OTRO" }, "Otro / Repaso")
+                                            )
+                                        ),
+                                        React.createElement("div", null, React.createElement("label", { className: "label-detail" }, "Contenido"), React.createElement("textarea", { rows: 2, className: "input-detail", value: clase.contenido, onChange: (e) => updateClassField(clase.id, 'contenido', e.target.value), placeholder: "Habilidad o contenido específico..." })),
+                                        React.createElement("div", null, React.createElement("label", { className: "label-detail" }, "Recursos"), React.createElement("input", { type: "text", className: "input-detail", value: clase.recursos, onChange: (e) => updateClassField(clase.id, 'recursos', e.target.value), placeholder: "Data, Texto, Guía..." }))
+                                    ),
+                                    React.createElement("div", { className: "space-y-3" },
+                                        React.createElement("div", null, React.createElement("label", { className: "label-detail text-green-600" }, "Inicio"), React.createElement("textarea", { rows: 2, className: "input-detail", value: clase.actividad_inicio, onChange: (e) => updateClassField(clase.id, 'actividad_inicio', e.target.value), placeholder: "Activación conocimientos previos, motivación, objetivo..." })),
+                                        React.createElement("div", null, React.createElement("label", { className: "label-detail text-blue-600" }, "Desarrollo"), React.createElement("textarea", { rows: 3, className: "input-detail", value: clase.actividad_desarrollo, onChange: (e) => updateClassField(clase.id, 'actividad_desarrollo', e.target.value), placeholder: "Actividad central, práctica guiada/independiente, mediación..." })),
+                                        React.createElement("div", null, React.createElement("label", { className: "label-detail text-red-600" }, "Cierre"), React.createElement("textarea", { rows: 2, className: "input-detail", value: clase.actividad_cierre, onChange: (e) => updateClassField(clase.id, 'actividad_cierre', e.target.value), placeholder: "Metacognición, ticket de salida, síntesis..." }))
+                                    )
+                                ),
+                                React.createElement("div", { className: "mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-3 gap-4" },
+                                    React.createElement("div", { className: "md:col-span-2" }, React.createElement("label", { className: "label-detail" }, "Evaluación"), React.createElement("input", { type: "text", className: "input-detail", value: clase.evaluacion, onChange: (e) => updateClassField(clase.id, 'evaluacion', e.target.value), placeholder: "Formativa (Obs. Directa), Sumativa (Rúbrica)..." })),
+                                    React.createElement("div", { className: "bg-gray-50 p-2 rounded border" },
+                                        React.createElement("label", { className: "label-detail text-center mb-2" }, "DUA"),
+                                        React.createElement("div", { className: "flex flex-col gap-1" },
+                                            React.createElement("label", { className: "flex items-center gap-2 text-xs" }, React.createElement("input", { type: "checkbox", checked: clase.dua.p1, onChange: () => updateDua(clase.id, 'p1') }), "1. Presentación"),
+                                            React.createElement("label", { className: "flex items-center gap-2 text-xs" }, React.createElement("input", { type: "checkbox", checked: clase.dua.p2, onChange: () => updateDua(clase.id, 'p2') }), "2. Acción"),
+                                            React.createElement("label", { className: "flex items-center gap-2 text-xs" }, React.createElement("input", { type: "checkbox", checked: clase.dua.p3, onChange: () => updateDua(clase.id, 'p3') }), "3. Implicación")
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+                        React.createElement("button", { onClick: addClassToMonth, className: "w-full py-4 bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold rounded-lg border-2 border-dashed border-gray-300 transition" }, "+ Agregar Clase")
+                    )
+                );
+            }
+        }
+        const root = document.getElementById('root'); ReactDOM.createRoot(root).render(React.createElement(App));
+    })();
+    </script>
+</body>
+</html>
