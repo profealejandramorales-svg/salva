@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Uniforme - Inspectoría</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        
+        .main-wrapper { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+        .card { background-color: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; }
+        
+        /* Checkbox personalizado */
+        .check-group {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px; border: 1px solid #e5e7eb; rounded: 6px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .check-group:hover { background-color: #fff7ed; border-color: #fdba74; }
+        .check-group input:checked + span { font-weight: bold; color: #c2410c; }
+
+        /* ESTILOS DE IMPRESIÓN (Colilla Vertical) */
+        @media print {
+            @page { size: portrait; margin: 0; }
+            body > *:not(#printable-area) { display: none !important; }
+            #printable-area { 
+                display: block !important; 
+                visibility: visible !important; 
+                position: absolute; top: 0; left: 0; width: 80mm; /* Ancho impresora térmica o recorte */
+                padding: 5mm;
+                font-family: 'Courier New', monospace;
+            }
+            .ticket-line { border-bottom: 1px dashed #000; margin: 5px 0; }
+            .ticket-header { text-align: center; margin-bottom: 10px; }
+            .ticket-title { font-size: 14px; font-weight: bold; text-transform: uppercase; }
+            .ticket-info { font-size: 12px; margin-bottom: 5px; }
+            .ticket-items { font-size: 11px; margin: 10px 0; }
+            .ticket-footer { text-align: center; font-size: 10px; margin-top: 15px; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <div id="message-box" class="fixed top-5 right-5 bg-orange-600 text-white px-6 py-3 rounded shadow-lg hidden transition-opacity z-50 font-bold"></div>
+
+    <div class="main-wrapper">
+        
+        <div class="flex items-center justify-between mb-6 border-b pb-4 bg-white p-4 rounded-xl shadow-sm">
+            <div class="flex items-center gap-4">
+                <img src="logo.jpg" class="h-16 w-auto object-contain bg-gray-50 rounded-full p-1 border" onerror="this.style.display='none'">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">Control de Uniforme</h1>
+                    <p class="text-xs text-gray-500 font-medium">Registro de Presentación Personal</p>
+                </div>
+            </div>
+            <a href="index.html" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 font-bold text-sm">Volver</a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <div class="card border-t-4 border-orange-500">
+                <h2 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4">Nueva Observación</h2>
+                
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Curso</label>
+                            <select id="course-select" class="w-full p-2 border rounded bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-orange-200">
+                                <option value="">-- Seleccionar --</option>
+                            </select>
+                        </div>
+                        <div>
+                             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha</label>
+                             <input type="date" id="reg-date" class="w-full p-2 border rounded bg-gray-50 text-sm outline-none">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Estudiante</label>
+                        <select id="student-select" class="w-full p-2 border rounded bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-orange-200" disabled>
+                            <option value="">Selecciona curso primero</option>
+                        </select>
+                    </div>
+
+                    <div class="bg-orange-50 p-3 rounded border border-orange-100">
+                        <label class="block text-xs font-bold text-orange-800 uppercase mb-2">Infracciones (Marcar)</label>
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <label class="check-group"><input type="checkbox" value="Polera/Polerón inadecuado" class="item-check"> <span>Polera/Polerón</span></label>
+                            <label class="check-group"><input type="checkbox" value="Pantalón/Falda corto/ajustado" class="item-check"> <span>Pantalón/Falda</span></label>
+                            <label class="check-group"><input type="checkbox" value="Cabello largo/teñido/desordenado" class="item-check"> <span>Cabello</span></label>
+                            <label class="check-group"><input type="checkbox" value="Uso de Piercing/Joyas" class="item-check"> <span>Piercing/Joyas</span></label>
+                            <label class="check-group"><input type="checkbox" value="Maquillaje/Uñas pintadas" class="item-check"> <span>Maquillaje/Uñas</span></label>
+                            <label class="check-group"><input type="checkbox" value="Barba/Afeitado" class="item-check"> <span>Barba/Afeitado</span></label>
+                            <label class="check-group"><input type="checkbox" value="Sin cotona/delantal" class="item-check"> <span>Sin Cotona</span></label>
+                            <label class="check-group"><input type="checkbox" value="Zapatos inadecuados" class="item-check"> <span>Zapatos</span></label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Observación Adicional</label>
+                        <input type="text" id="obs-text" class="w-full p-2 border rounded text-sm outline-none" placeholder="Detalle específico...">
+                    </div>
+
+                    <button id="btn-save" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded shadow transition transform active:scale-95 mt-2 flex justify-center items-center gap-2">
+                        <span>🖨️</span> Guardar e Imprimir Colilla
+                    </button>
+                </div>
+            </div>
+
+            <div class="card border-t-4 border-gray-500 flex flex-col h-full">
+                <div class="flex justify-between items-center border-b pb-2 mb-2">
+                    <h2 class="text-lg font-bold text-gray-800">Registros del Día</h2>
+                    <span class="text-xs bg-gray-200 px-2 py-1 rounded text-gray-600" id="count-badge">0</span>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto max-h-[500px]">
+                    <table class="w-full text-left text-sm" id="report-table">
+                        <thead class="bg-gray-50 sticky top-0 z-10 text-xs uppercase text-gray-500">
+                            <tr>
+                                <th class="p-2 border-b">Alumno</th>
+                                <th class="p-2 border-b">Faltas</th>
+                                <th class="p-2 border-b text-right"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-body" class="divide-y divide-gray-100">
+                            <tr><td colspan="3" class="p-4 text-center text-gray-400 italic">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <button onclick="printReport()" class="mt-4 bg-gray-800 text-white text-xs font-bold py-2 rounded hover:bg-gray-900 w-full">
+                    Imprimir Reporte General
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="printable-area" class="hidden"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyBnSMVCH0yyYUWk5z54kTIPTrWkyoeWs-I", authDomain: "suspenciones-40d0c.firebaseapp.com", projectId: "suspenciones-40d0c", storageBucket: "suspenciones-40d0c.firebasestorage.app", messagingSenderId: "853418739042", appId: "1:853418739042:web:d051befb99cd2acdd4583b" };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const COLLECTION_NAME = "uniforme_infracciones";
+
+        // NÓMINA (Misma base de datos que usas en los otros archivos)
+        const schoolData = {
+            'Primero Medio A': ['ÁLVAREZ FAÚNDEZ MATEO VICENTE', 'CASTILLO ARAVENA MAITE PASCAL', 'COLLADO PUENTES SANTINO ALEXANDER', 'CONCHA TORREALBA JOAQUÍN IGNACIO', 'DÍAZ MALUENDA ESTEFANÍA ANTONIA', 'DONAIRE ROJAS MAITE EMILIA ESTER', 'ESPINOZA CACHAÑA LISBET ALEXANDRA', 'FERRADA ALBORNOZ AGUSTÍN ALEXIS', 'FUENTEMAVIDA BARROS OSCAR ANTONIO', 'JAQUE PACHECO DAMIÁN IGNACIO', 'JARAMILLO VILLAR MATT HOST', 'LÓPEZ ACUÑA MARCO EMILIO', 'LÓPEZ VILLAR FRANCO IGNACIO', 'MESA DÍAZ GONZALO IGNACIO', 'MEZA CARRASCO CRISTIAN ALFONSO', 'MORALES GARRIDO NICOLÁS ANTONIO', 'ORTEGA DA SILVA EMILIA CATALINA SOPHIA', 'PEREIRA TAPIA KEVIN RUBÉN', 'RAMÍREZ SEPÚLVEDA LUIS JUSTIN JESÚS', 'RAMÍREZ VALDÉS MARTINA POLETTE', 'RECABAL YÁÑEZ TOMÁS IGNACIO', 'RODRÍGUEZ SEPÚLVEDA SIMONEY ISAMAR', 'ROJAS ÓRDENES TRACY MAIDEN', 'SÁNCHEZ MUNIZAGA ALONDRA ANAÍS', 'SOLIZ OLGUIN BRAYAN', 'VALENZUELA MUÑOZ MAGDALENA BELÉN'],
+            'Segundo Medio A': ['ALBURQUENQUE DEL GRECCO EMILYA ANTONIA', 'ANABALÓN BELTRÁN BENJAMÍN NICOLÁS', 'ARAVENA ZÚÑIGA NOEMÍ JESÚS DE LAS ESTRELLAS', 'ARAYA DOMÍNGUEZ ALEX FABIÁN', 'ASTUDILLO CAMPOS CRISTÓBAL ANTONIO', 'ASTUDILLO VÁSQUEZ BRUNO FERNANDO LEÓN', 'BAEZ DONOSO LUKAS ALFONSO', 'CARO BUSTOS KRISCHNA ESTEFANIA', 'CONTRERAS SALGADO HADEEY ALEJANDRA', 'CUMINAO VIDAL CATALINA ANDREA', 'DÍAZ MALUENDA MIGUEL ALBERTO', 'IBÁÑEZ GONZÁLEZ FERNANDA MAGDALENA', 'KILTAN GONZÁLEZ DIDIER EZEQUIEL', 'LAGOS LASTRA ALEXANDRA DANAE', 'LÓPEZ LÓPEZ LUCIANO ANTONIO', 'LÓPEZ NOVOA EYDAN DAMIÁN', 'MALDONADO FLORES ANTONELLA BELÉN', 'MONTECINO DÍAZ VALESKA BELÉN', 'MOYA REYES MATEO ANTONIO BENJAMÍN', 'MUÑOZ CONTRERAS LUIS GABRIEL', 'MUÑOZ LUNA ROGER JOEL', 'NAVARRO VILLANUEVA KARLA PAZ', 'ORELLANA ARRIAGADA SEBASTIÁN ANDRÉS', 'OSES CAMPOS VALENTINA ABIGAIL', 'PALMA ORELLANA ANTONELLA FRANCISCA', 'PEREIRA ORELLANA MONSERRAT ALAMIRA', 'PÉREZ ORMAZÁBAL ZADKA ALEJANDRA', 'PÉREZ QUEVEDO CONSTANZA TRINIDAD', 'QUEZADA NARANJO FELIPE ALONSO', 'RAMÍREZ VILLALOBOS DUVAN EMILIO', 'RIQUELME SANTOS BENJAMÍN ALONSO', 'ROJAS GONZÁLEZ FLORENCIA TRINIDAD', 'ROJAS LEIVA EDUARDO JAVIER', 'SALAZAR SALAS PEDRO JOSÉ', 'SANTANDER LÓPEZ MARÍA JOSÉ', 'TAPIA CASTILLA JEANFRANCO PATRICK', 'URBINA CÁCERES FRANCHESCA POULETTE', 'VARGAS MORAGA MARTINA SAYEN', 'VÁSQUEZ AGUILERA SCARLET NICOLE', 'VÁSQUEZ ZALDUENDO AMANDA ISABEL', 'VERA BRAVO FLORENCIA ANTONIA', 'YÁÑEZ GONZÁLEZ BRAYAN DAMIÁN', 'ZABALAGA COFRÉ DAMIÁN ANDRÉS'],
+            'Tercero Medio A': ['AHUMADA ROJAS TRINIDAD BELÉN', 'CORNEJO CASTILLO OSCAR GABRIEL', 'ESPINOZA PEÑALILLO BRAYAN JESÚS', 'FAÚNDEZ NORAMBUENA ALEJANDRO ANTONIO', 'JARAMILLO VILLAR EMILIO SCOTT', 'LÓPEZ VILLAR MARTÍN ALONSO', 'MEZA COLIMÁN ANGEL BLAS', 'MIRANDA MUÑOZ ALEXANDRA JAVIERA', 'MORAGA PACHECO RENATO IGNACIO', 'MORALES REIMÁN ALFONSO TOMÁS', 'ORELLANA GARRIDO MATÍAS LEANDRO', 'PEREIRA HORMAZÁBAL MAXIMILIANO EDUARDO', 'PINTO TOBAR JORDÁN AMARO', 'RECABAL YÁÑEZ KEVIN ANDRÉS', 'SANDOVAL CERPA VICENTE ESTEBAN', 'SOTO NARANJO CHRISTOPHER', 'VEKARIC VERDEJO MARTÍN', 'VIELMA ZABALAGA JOAN MANUEL'],
+            'Tercero Medio C': ['BRAVO MENARES ALEX JOHAN', 'CARRASCO LEIVA BENJAMÍN IGNACIO', 'ENCINA PIZARRO DIEGO BENJAMÍN ALEXANDER', 'ESPINOSA TORRES FERNANDA ELENA', 'GONZÁLEZ SALAZAR EMILIA CATALINA', 'MEDEL OJEDA LEÓN IGNACIO', 'OLIVARES VALENZUELA ALONSO IGNACIO', 'OLIVARES VALENZUELA ANTONELLA DANAE IGNACIA', 'PUNOY MEDEL MILLARAY ANGÉLICA', 'QUIÑENAO MUÑOZ CRISTÓBAL PATRICIO', 'RIQUELME CASTILLO MATÍAS EDUARDO ANTONIO', 'RIQUELME COLOMA DALIA CONSTANZA', 'RIVERA ABARZA CONSTANZA VICTORIA', 'SAAVEDRA BRAVO FLORENCIA ALEJANDRA', 'SALGADO ROJAS VICENTE MOISÉS', 'SANTIS CASSEUS TEIVA SCARLETT', 'SOBARZO YÉVENES KATHERINNE ALEXIA BELÉN', 'TOLEDO ALBORNOZ ANTONELLA INES', 'VENEGAS ARRIAGADA ANTONIA EDITH'],
+            'Cuarto Medio A': ['ALCÁNTAR GARCÍA MARTINA ALEJANDRA', 'BAHAMONDE MUÑOZ ARIEL LEON', 'CAMPOS MUÑOZ CRISTOPHER JESÚS', 'CANCINO ORÓSTICA VICENTE GASPAR', 'CARO URRUTIA CONSUELO ANTONIA', 'CARRASCO GONZÁLEZ CAMILA ANDREA', 'COFRÉ CASTILLO ANTONIO ANDRÉS', 'GALDAMES VERGARA FELIPE ESTEBAN', 'GARCÍA GONZÁLEZ SANTIAGO HUMBERTO', 'GONZÁLEZ AMIGO FRANCISCA IGNACIA', 'GONZÁLEZ SALAZAR JOAQUÍN ALONSO', 'GUTIÉRREZ GUTIÉRREZ ANGEL MARTÍN', 'HERNÁNDEZ SEPÚLVEDA VICENTE ALEJANDRO', 'LOBOS CÁCERES ANTONIA PAZ', 'MARTÍNEZ LIZANA AARON ALEJANDRO', 'MEZA CARRASCO BENJAMÍN INTI', 'MIÑO GONZALEZ CATALINA ANDREA', 'PÉREZ CORÓN MANUEL IGNACIO', 'SAMANIEGO CORTEZ JAKSON FERGIE', 'SEPÚLVEDA SALAZAR SOFÍA ANTONIA', 'TAPIA ACUÑA GABRIEL ANTONIO', 'TORREALBA MOYA FLORVELIS DE LOS ANGELES', 'VEGA VIVANCO CRISTÓBAL ANTONIO', 'VERA NAVARRETE DANIELA ELIZABETH', 'VILLALOBOS ARAVENA KARINA ANGELINA', 'VILLALOBOS VILLALOBOS SAMIR LUCIAN JESÚS'],
+            'Cuarto Medio C': ['ARELLANO ACUÑA MARTÍN ANTONIO', 'AROS ÁVILA DAYANA IGNACIA', 'CABRERA COLOMBINO MARÍA GRACIA', 'COLLAO MEDINA ANAÍS VALENTINA', 'DE LA HOZ VALENZUELA FRANCO SEBASTIÁN', 'FUENTES CARRASCO YARIXA ALEJANDRA', 'GÓMEZ CANCINO DANIELA ALEJANDRA', 'GUTIÉRREZ CARRIÓN MILLARAY CAROLINA', 'HONORATO TAPIA GLORIA JAVIERA', 'LARA RIVERA BENJAMÍN ESTEBAN', 'PALACIOS SOTO JOSÉ TOMÁS', 'PEZO SANTANDER JOSÉ CRISTÓBAL', 'ROCHA ROJAS JOSÉ PABLO WILLIAMS', 'ROJAS YÉVENES FABIANA ISIDORA', 'SÁNCHEZ PAREJA ANDY ANTONIO', 'SANTANDER LÓPEZ SIMÓN ESTEBAN', 'TRONCOSO LIZAMA SIOMARA IGNACIA', 'WARNKEN ROJAS LUCIANA BERNABELA']
+        };
+
+        const courseSelect = document.getElementById('course-select');
+        const studentSelect = document.getElementById('student-select');
+        const dateInput = document.getElementById('reg-date');
+        let dailyRecords = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inicializar Auth
+            signInAnonymously(auth).then(() => {
+                console.log("Conectado");
+                listenDailyRecords();
+            });
+
+            // Llenar Cursos
+            for(const course in schoolData) {
+                const opt = document.createElement('option'); opt.value = course; opt.textContent = course;
+                courseSelect.appendChild(opt);
+            }
+
+            // Fecha hoy
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+            
+            // Re-escuchar si cambia la fecha
+            dateInput.addEventListener('change', listenDailyRecords);
+        });
+
+        courseSelect.addEventListener('change', () => {
+            const course = courseSelect.value;
+            studentSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
+            studentSelect.disabled = !course;
+            if(course && schoolData[course]) {
+                schoolData[course].forEach(s => {
+                    const opt = document.createElement('option'); opt.value = s; opt.textContent = s;
+                    studentSelect.appendChild(opt);
+                });
+            }
+        });
+
+        // ESCUCHAR REGISTROS
+        function listenDailyRecords() {
+            const dateStr = dateInput.value;
+            const q = query(collection(db, COLLECTION_NAME), where("dateStr", "==", dateStr));
+            
+            onSnapshot(q, (snapshot) => {
+                dailyRecords = [];
+                snapshot.forEach(doc => dailyRecords.push({id: doc.id, ...doc.data()}));
+                // Ordenar más reciente arriba
+                dailyRecords.sort((a,b) => b.createdAt.seconds - a.createdAt.seconds);
+                renderTable();
+            });
+        }
+
+        // GUARDAR REGISTRO
+        document.getElementById('btn-save').addEventListener('click', async () => {
+            const course = courseSelect.value;
+            const student = studentSelect.value;
+            const dateStr = dateInput.value;
+            const obs = document.getElementById('obs-text').value.trim();
+            
+            // Recopilar checkboxes
+            const infractions = [];
+            document.querySelectorAll('.item-check:checked').forEach(chk => infractions.push(chk.value));
+
+            if(!course || !student || infractions.length === 0) {
+                return showToast("⚠️ Selecciona alumno y al menos una infracción.");
+            }
+
+            const record = {
+                course, student, dateStr, obs, infractions,
+                createdAt: Timestamp.now()
+            };
+
+            try {
+                await addDoc(collection(db, COLLECTION_NAME), record);
+                printTicket(record); // Imprimir inmediatamente
+                
+                // Reset UI parcial
+                document.querySelectorAll('.item-check:checked').forEach(chk => chk.checked = false);
+                document.getElementById('obs-text').value = "";
+                showToast("✅ Registro guardado e impreso.");
+            } catch(e) {
+                console.error(e);
+                showToast("❌ Error al guardar.");
+            }
+        });
+
+        function renderTable() {
+            const tbody = document.getElementById('report-body');
+            document.getElementById('count-badge').innerText = dailyRecords.length;
+            tbody.innerHTML = '';
+            
+            if(dailyRecords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-400">Sin registros hoy.</td></tr>';
+                return;
+            }
+
+            dailyRecords.forEach(r => {
+                const faults = r.infractions.join(", ");
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-2">
+                            <div class="font-bold text-gray-800 text-xs">${r.student}</div>
+                            <div class="text-[10px] text-gray-500">${r.course}</div>
+                        </td>
+                        <td class="p-2 text-xs text-orange-700 leading-tight">${faults}</td>
+                        <td class="p-2 text-right">
+                             <button onclick="window.deleteItem('${r.id}')" class="text-red-500 hover:bg-red-50 p-1 rounded font-bold">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // IMPRIMIR TICKET (COLILLA)
+        function printTicket(data) {
+            const area = document.getElementById('printable-area');
+            const now = new Date();
+            
+            area.innerHTML = `
+                <div class="ticket-header">
+                    <img src="logo.jpg" style="height:40px; margin-bottom:5px;" onerror="this.style.display='none'">
+                    <div class="ticket-title">Control de Uniforme</div>
+                    <div style="font-size:10px;">Escuela Agrícola Sagrados Corazones</div>
+                </div>
+                
+                <div class="ticket-line"></div>
+                
+                <div class="ticket-info"><strong>FECHA:</strong> ${data.dateStr}</div>
+                <div class="ticket-info"><strong>ALUMNO:</strong> ${data.student}</div>
+                <div class="ticket-info"><strong>CURSO:</strong> ${data.course}</div>
+                
+                <div class="ticket-line"></div>
+                
+                <div style="font-weight:bold; font-size:11px; margin-top:5px;">INFRACCIONES DETECTADAS:</div>
+                <ul class="ticket-items" style="padding-left:15px; margin-top:2px;">
+                    ${data.infractions.map(i => `<li>${i}</li>`).join('')}
+                </ul>
+                
+                ${data.obs ? `<div style="font-size:11px; margin-top:5px;"><strong>Obs:</strong> ${data.obs}</div>` : ''}
+                
+                <div class="ticket-footer">
+                    <div style="border-top:1px solid #000; width:80%; margin:20px auto 5px auto;"></div>
+                    Firma Inspectoría<br>
+                    <span style="font-size:9px; color:#666;">Documento Interno</span>
+                </div>
+            `;
+            
+            // Estilo específico para forzar colilla
+            const style = document.createElement('style');
+            style.innerHTML = `@media print { @page { size: 80mm auto; margin: 0; } body { background: white; } }`;
+            document.head.appendChild(style);
+            
+            window.print();
+            
+            setTimeout(() => document.head.removeChild(style), 1000);
+        }
+
+        // IMPRIMIR REPORTE TABLA
+        window.printReport = () => {
+            const area = document.getElementById('printable-area');
+            const dateStr = dateInput.value;
+            
+            area.innerHTML = `
+                <h2 style="text-align:center; font-family:Arial;">REPORTE DE UNIFORME</h2>
+                <p style="text-align:center; font-family:Arial; font-size:12px;">Fecha: ${dateStr} | Total Casos: ${dailyRecords.length}</p>
+                <table style="width:100%; border-collapse:collapse; font-family:Arial; font-size:11px; margin-top:20px;">
+                    <thead>
+                        <tr style="background:#eee;">
+                            <th style="border:1px solid #999; padding:5px; text-align:left;">Curso</th>
+                            <th style="border:1px solid #999; padding:5px; text-align:left;">Alumno</th>
+                            <th style="border:1px solid #999; padding:5px; text-align:left;">Faltas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${dailyRecords.map(r => `
+                            <tr>
+                                <td style="border:1px solid #999; padding:5px;">${r.course}</td>
+                                <td style="border:1px solid #999; padding:5px;">${r.student}</td>
+                                <td style="border:1px solid #999; padding:5px;">${r.infractions.join(', ')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            // Estilo para reporte hoja carta
+            const style = document.createElement('style');
+            style.innerHTML = `@media print { @page { size: Letter; margin: 1cm; } #printable-area { width: 100% !important; position: static !important; } }`;
+            document.head.appendChild(style);
+            
+            window.print();
+            
+            setTimeout(() => document.head.removeChild(style), 1000);
+        };
+
+        window.deleteItem = async (id) => {
+            if(confirm("¿Borrar este registro?")) {
+                await deleteDoc(doc(db, COLLECTION_NAME, id));
+                showToast("Registro eliminado");
+            }
+        };
+
+        function showToast(msg) {
+            const box = document.getElementById('message-box');
+            box.innerText = msg;
+            box.classList.remove('hidden');
+            setTimeout(() => box.classList.add('hidden'), 3000);
+        }
+    </script>
+</body>
+</html>
